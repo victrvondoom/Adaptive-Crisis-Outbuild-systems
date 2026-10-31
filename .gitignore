@@ -38,3 +38,7 @@ benchmarks/results/*.tmp.json
 *.pem
 *.key
 credentials/
+
+# Test-run artifacts (temporary databases)
+backend/data/
+backend/test_api_*.db*
