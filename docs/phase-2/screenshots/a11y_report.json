@@ -1,0 +1,7 @@
+{
+  "tool": "axe-core",
+  "violations": {
+    "scrollable-region-focusable": 2
+  },
+  "total_nodes": 2
+}

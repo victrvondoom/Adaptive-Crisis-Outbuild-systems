@@ -13,6 +13,99 @@
 const API_BASE = "/api/v1"; // same-origin; served by the FastAPI app
 
 // ------------------------------------------------------------------
+// Authentication (Phase II): bearer token + tenant selection via X-Org-Id.
+// Tokens come from the development identity adapter
+// (POST /api/v1/auth/dev/token) — clearly labeled as DEV AUTH in the UI.
+// ------------------------------------------------------------------
+const auth = {
+  token: sessionStorage.getItem("aidnexus_token") || null,
+  orgId: sessionStorage.getItem("aidnexus_org") || "ORG-PACIFIC",
+  user: null,
+};
+
+function authHeaders() {
+  const h = { "Content-Type": "application/json" };
+  if (auth.token) h["Authorization"] = `Bearer ${auth.token}`;
+  if (auth.orgId) h["X-Org-Id"] = auth.orgId;
+  return h;
+}
+
+async function apiFetch(path, opts = {}) {
+  opts.headers = Object.assign({}, authHeaders(), opts.headers || {});
+  const res = await fetch(path, opts);
+  if (res.status === 401) {
+    showLoginOverlay("Session required — please sign in with a demo identity.");
+    throw new Error("unauthenticated");
+  }
+  return res;
+}
+
+function showLoginOverlay(message) {
+  const overlay = document.getElementById("loginOverlay");
+  if (!overlay) return;
+  overlay.style.display = "flex";
+  const msg = document.getElementById("loginMessage");
+  if (msg && message) msg.textContent = message;
+  renderIdentityPicker();
+}
+
+async function renderIdentityPicker() {
+  const container = document.getElementById("identityPicker");
+  if (!container || container.dataset.loaded) return;
+  try {
+    const res = await fetch(`${API_BASE}/auth/dev/identities`);
+    if (!res.ok) throw new Error("dev auth unavailable");
+    const identities = await res.json();
+    container.innerHTML = identities.map(id => `
+      <button class="identity-btn" onclick="loginAs('${escapeHtml(id.email)}')">
+        <strong>${escapeHtml(id.display_name)}</strong>
+        <span style="display:block; font-size:0.68rem; color:var(--text-muted);">
+          ${escapeHtml(id.email)}</span>
+        <span style="display:block; font-size:0.68rem;">
+          ${id.orgs.filter(o => o.role).map(o => `${escapeHtml(o.org_id.replace("ORG-", ""))}/${escapeHtml(o.role)}`).join(" · ")}
+        </span>
+      </button>`).join("");
+    container.dataset.loaded = "1";
+  } catch (e) {
+    container.innerHTML = `<div style="color:#f87171; font-size:0.78rem;">Dev auth unavailable: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+window.loginAs = async function (email) {
+  try {
+    const res = await fetch(`${API_BASE}/auth/dev/token`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    auth.token = data.access_token;
+    auth.user = data;
+    const pacific = data.scopes.find(s => s.org_id === "ORG-PACIFIC");
+    auth.orgId = pacific ? "ORG-PACIFIC" : data.scopes[0].org_id;
+    sessionStorage.setItem("aidnexus_token", auth.token);
+    sessionStorage.setItem("aidnexus_org", auth.orgId);
+    document.getElementById("loginOverlay").style.display = "none";
+    await syncStateWithBackend();
+  } catch (e) {
+    showToast("Login failed: " + e, "error");
+  }
+};
+
+window.logout = async function () {
+  try { await apiFetch(`${API_BASE}/auth/logout`, { method: "POST" }); } catch (e) {}
+  auth.token = null;
+  sessionStorage.removeItem("aidnexus_token");
+  showLoginOverlay("Signed out.");
+};
+
+window.switchOrg = async function (orgId) {
+  auth.orgId = orgId;
+  sessionStorage.setItem("aidnexus_org", orgId);
+  await syncStateWithBackend();
+};
+
+// ------------------------------------------------------------------
 // Utilities
 // ------------------------------------------------------------------
 function escapeHtml(value) {
@@ -60,7 +153,13 @@ const state = {
 // ------------------------------------------------------------------
 async function syncStateWithBackend() {
   try {
-    const res = await fetch(`${API_BASE}/state`);
+    const res = await apiFetch(`${API_BASE}/state`);
+    if (res.status === 403) {
+      state.connectedToBackend = false;
+      showToast("Access denied: your account has no membership in this organization.", "error");
+      renderAll();
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     state.connectedToBackend = true;
@@ -92,7 +191,7 @@ async function syncStateWithBackend() {
 async function tickSimulationStep() {
   if (!state.connectedToBackend || state.sim.isPaused) return;
   try {
-    await fetch(`${API_BASE}/sim/tick`, {
+    await apiFetch(`${API_BASE}/sim/tick`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ step_delta_sec: 1.0 })
@@ -112,7 +211,7 @@ window.toggleSimulationPlay = async function () {
     btn.classList.toggle("paused", state.sim.isPaused);
   }
   try {
-    await fetch(`${API_BASE}/sim/control`, {
+    await apiFetch(`${API_BASE}/sim/control`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_paused: state.sim.isPaused })
@@ -126,7 +225,7 @@ window.setSimulationSpeed = async function (speed) {
     btn.classList.toggle("active", parseFloat(btn.dataset.speed) === speed);
   });
   try {
-    await fetch(`${API_BASE}/sim/control`, {
+    await apiFetch(`${API_BASE}/sim/control`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sim_speed: speed })
@@ -498,7 +597,7 @@ window.triggerDisruption = async function (type) {
                 lat: 14.6595, lng: 121.0142 };
   }
   try {
-    const res = await fetch(`${API_BASE}/disrupt`, {
+    const res = await apiFetch(`${API_BASE}/disrupt`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
@@ -548,7 +647,7 @@ function renderApprovalDiff() {
 
 window.approvePlanV2 = async function () {
   try {
-    const res = await fetch(`${API_BASE}/replan/approve`, {
+    const res = await apiFetch(`${API_BASE}/replan/approve`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ approver_name: "Mission Coordinator (demo session)" })
     });
@@ -573,7 +672,7 @@ window.processAITriage = async function () {
   if (!rawText.trim()) return;
 
   try {
-    const res = await fetch(`${API_BASE}/nlp/triage`, {
+    const res = await apiFetch(`${API_BASE}/nlp/triage`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ raw_text: rawText })
     });
@@ -667,7 +766,7 @@ window.confirmVolunteerDelivery = async function () {
   if (!signatureDrawn) { showToast("Please draw the recipient's signature first.", "error"); return; }
 
   try {
-    const res = await fetch(`${API_BASE}/deliveries/confirm`, {
+    const res = await apiFetch(`${API_BASE}/deliveries/confirm`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         request_id: reqId,
@@ -717,7 +816,7 @@ window.runBenchmarkMatrix = async function () {
   if (sumBanner) sumBanner.textContent = "Executing deterministic scenario simulation — all metrics computed from the execution trace...";
 
   try {
-    const res = await fetch(`${API_BASE}/benchmark/run?seed=${seed}&n_requests=200`, { method: "POST" });
+    const res = await apiFetch(`${API_BASE}/benchmark/run?seed=${seed}&n_requests=200`, { method: "POST" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     renderBenchmarkCards(data.metrics, data.summary, data);
@@ -817,7 +916,7 @@ function showToast(message, kind) {
 // ------------------------------------------------------------------
 window.resetScenarioUI = async function () {
   try {
-    await fetch(`${API_BASE}/scenario/reset`, { method: "POST" });
+    await apiFetch(`${API_BASE}/scenario/reset`, { method: "POST" });
     await syncStateWithBackend();
     document.getElementById("replanApprovalBanner").classList.remove("visible");
     showToast("Scenario reset to clean baseline (seed=42).", "success");
@@ -840,7 +939,11 @@ function renderAll() {
 
 window.addEventListener("DOMContentLoaded", () => {
   initSignaturePad();
-  syncStateWithBackend();
+  if (!auth.token) {
+    showLoginOverlay("Sign in with a demo identity to operate the platform.");
+  } else {
+    syncStateWithBackend();
+  }
   window.addEventListener("resize", () => {
     if (state.activeTab === "mission-command") renderCrisisMap();
   });

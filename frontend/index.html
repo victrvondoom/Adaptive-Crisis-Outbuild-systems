@@ -44,9 +44,24 @@
       </div>
 
       <div id="headerPlanBadge" class="plan-badge">⚡ PLAN —</div>
-      <button class="btn-secondary" onclick="resetScenarioUI()" title="Reset to clean Seed=42 state" aria-label="Reset scenario">↺ Reset</button>
+      <button class="btn-secondary" onclick="switchOrg('ORG-PACIFIC')" title="Switch to Pacific Relief Alliance" aria-label="Switch organization to Pacific">PACIFIC</button>
+      <button class="btn-secondary" onclick="switchOrg('ORG-HIGHLAND')" title="Switch to Highland Care Collective" aria-label="Switch organization to Highland">HIGHLAND</button>
+      <button class="btn-secondary" onclick="logout()" aria-label="Sign out">Sign out</button>
+      <button class="btn-secondary" onclick="resetScenarioUI()" title="Reset simulation to clean Seed=42 state" aria-label="Reset scenario">↺ Reset</button>
     </div>
   </header>
+
+  <!-- Development identity login overlay (Phase II multi-tenant auth) -->
+  <div id="loginOverlay" class="login-overlay" style="display:none;" role="dialog" aria-label="Sign in">
+    <div class="login-card">
+      <h2 style="font-family:var(--font-heading); color:#fff; margin-bottom:0.3rem;">Sign in — AIDNEXUS ONE</h2>
+      <p id="loginMessage" style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.8rem;">Sign in with a demo identity to operate the platform.</p>
+      <p style="font-size:0.68rem; color:var(--text-muted); margin-bottom:0.6rem;">
+        DEVELOPMENT AUTH — synthetic demo identities only. Production uses OIDC identity (see docs/phase-2/AUTHENTICATION_AND_TENANCY.md).
+      </p>
+      <div id="identityPicker" style="display:flex; flex-direction:column; gap:0.5rem; max-height:320px; overflow:auto;"></div>
+    </div>
+  </div>
 
   <!-- Offline / connection notice (honest state, no fabricated data) -->
   <div id="offlineNotice" class="offline-notice" style="display:none;">

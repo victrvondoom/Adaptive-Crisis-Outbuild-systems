@@ -1269,3 +1269,37 @@ textarea:focus-visible {
   outline: 2px solid #00e5ff;
   outline-offset: 2px;
 }
+
+/* Login overlay (Phase II dev auth) */
+.login-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(3, 7, 14, 0.88);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-card {
+  background: #0b1220; border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 1.5rem; width: min(420px, 92vw);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+.identity-btn {
+  text-align: left; background: #111a2c; color: #e2e8f0;
+  border: 1px solid var(--border-strong); border-radius: 10px;
+  padding: 0.6rem 0.8rem; cursor: pointer; font-size: 0.8rem;
+}
+.identity-btn:hover { border-color: var(--accent-cyan); }
+
+/* Responsive fixes (found by real 390px browser test: 1192px overflow) */
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .nav-tabs { flex-wrap: wrap; }
+  .sim-controls-bar { flex-wrap: wrap; row-gap: 0.35rem; }
+  .header-actions { flex-wrap: wrap; row-gap: 0.4rem; }
+  .app-header { flex-wrap: wrap; row-gap: 0.5rem; }
+  .ledger-table-container { overflow-x: auto; }
+  .ledger-table { min-width: 640px; }
+  .command-split { min-height: unset; }
+  .twin-grid { grid-template-columns: 1fr; }
+  .intake-grid { grid-template-columns: 1fr; }
+  .benchmark-cards-grid { grid-template-columns: 1fr; }
+}
+body { overflow-x: hidden; }
