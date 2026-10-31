@@ -21,14 +21,31 @@ JS mission-control dashboard. It runs a deterministic crisis scenario
 | 81-test automated suite | ✅ Implemented |
 | LLM integration (Bedrock/Azure), OutSystems ODC app, Twilio SMS, auth/multi-tenancy, DB persistence | ❌ Not implemented (spec-only; see `docs/context/CURRENT_STATE.md`) |
 
+## Phase II — production readiness (verified)
+
+| Capability | Status |
+|---|---|
+| Durable multi-tenant persistence (SQLAlchemy; SQLite local / PostgreSQL via `DATABASE_URL`), versioned migrations, transactional inventory, idempotent receipts, persisted tamper-evident audit | ✅ Implemented + tested (restart/concurrency/tamper) |
+| Authentication (OIDC adapter; dev adapter impossible in production), 6 roles, membership-derived tenant scoping, revocable sessions | ✅ Implemented + tested (10/10 isolation cases); live IdP BLOCKED (no credentials) |
+| Agent runtime: provider abstraction (Mistral/OpenAI-compatible), context envelopes with stale detection, postcondition-verified actions | ✅ Implemented + tested; real model BLOCKED without keys — deterministic path honestly labeled |
+| Optimizer proofs: brute-force oracle gap measurement, metamorphic tests, independent feasibility verifier | ✅ Implemented (caught and fixed a real preservation defect) |
+| Browser-verified UI: login, triage, disruption approval, volunteer signature delivery, cross-tenant denial; 3-viewport screenshots; axe-core scan | ✅ 8/8 real Chromium journeys |
+| Container image, compose dev stack (app + PostgreSQL 16), health/readiness, JSON logs + correlation IDs, CI workflow with quality gates | ✅ Implemented; NOT deployed (no cloud credentials) |
+| Test suite | ✅ 149 backend tests + 8 browser journeys, all passing |
+
+See `docs/phase-2/FINAL_PHASE_2_REPORT.md` for evidence, measured load results, and precise external blockers.
+
 ## Quick start
 
 ```bash
 cd backend
 pip install -r requirements.txt
 
-# Run the tests (81 tests, ~3 s)
+# Run the tests (149 tests, ~20 s; uses a temporary database)
 python -m pytest
+
+# Run real browser journeys (needs: pip install pytest-playwright && playwright install chromium)
+python -m pytest tests/browser -m browser
 
 # Run the app
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
