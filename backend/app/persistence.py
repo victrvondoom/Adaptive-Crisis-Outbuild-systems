@@ -188,6 +188,19 @@ def get_request(session, org_id: str, request_id: str) -> Optional[AidRequestRow
 # ----------------------------------------------------------------------
 # Inventory (transactional movements)
 # ----------------------------------------------------------------------
+def ensure_depot(session, org_id: str, depot_id: str, lat: float = 0.0,
+                lng: float = 0.0, sector: str = "Central", status: str = "OPERATIONAL"):
+    """Creates the Depot row if absent (org-qualified id)."""
+    from .models_db import Depot
+    qualified = q_depot(org_id, depot_id)
+    d = session.get(Depot, qualified)
+    if d is None:
+        session.add(Depot(id=qualified, org_id=org_id, name=depot_id,
+                          lat=lat, lng=lng, sector=sector, status=status))
+        session.flush()
+    return qualified
+
+
 def seed_inventory(session, org_id: str, depot_id: str, item_type: str, quantity: float):
     depot_id = q_depot(org_id, depot_id)
     item = session.execute(select(InventoryItem).where(

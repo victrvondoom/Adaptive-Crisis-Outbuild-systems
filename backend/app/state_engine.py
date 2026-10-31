@@ -90,6 +90,24 @@ class CrisisStateEngine:
             import logging
             logging.getLogger("aidnexus.persistence").error("audit write-through failed: %s", e)
 
+    def _seed_inventory_if_missing(self):
+        """First boot for an org seeds its inventory from the scenario depots
+        (bootstrap covers the demo orgs; any other org starts here). Must run
+        BEFORE reset_scenario: the scenario's seed deliveries write through."""
+        from .db import session_scope
+        from . import persistence
+        with session_scope() as session:
+            existing = persistence.get_inventory(session, self.org_id)
+            if not existing:
+                for depot in self.depots.values():
+                    persistence.ensure_depot(session, self.org_id, depot.id,
+                                             lat=depot.location.lat, lng=depot.location.lng,
+                                             sector=depot.location.sector, status=depot.status)
+                    for item_type, qty in depot.inventory.items():
+                        persistence.seed_inventory(session, self.org_id,
+                                                   depot_id=depot.id,
+                                                   item_type=item_type, quantity=qty)
+
     def reconcile_from_db(self):
         """Restart recovery: load durable business records for this org.
 
@@ -101,15 +119,6 @@ class CrisisStateEngine:
         from .db import session_scope
         from . import persistence
         with session_scope() as session:
-            # First boot for an org also seeds its inventory from the scenario
-            # (bootstrap covers the demo orgs; any other org starts here).
-            existing_inv = persistence.get_inventory(session, self.org_id)
-            if not existing_inv:
-                for depot in self.depots.values():
-                    for item_type, qty in depot.inventory.items():
-                        persistence.seed_inventory(session, self.org_id,
-                                                   depot_id=depot.id,
-                                                   item_type=item_type, quantity=qty)
             db_rows = persistence.list_requests(session, org_id=self.org_id)
             if not db_rows:
                 for req in self.requests.values():
@@ -356,6 +365,9 @@ class CrisisStateEngine:
             )
             req.urgency_score = urgency_score(req)
             self.requests[req_id] = req
+
+        if self.persist:
+            self._seed_inventory_if_missing()
 
         self.log_audit(
             event_type="SCENARIO_RESET", actor_id="COORDINATOR_SYSTEM", actor_type=ActorType.SYSTEM,
