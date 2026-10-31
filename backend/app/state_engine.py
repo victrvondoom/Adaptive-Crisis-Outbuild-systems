@@ -542,10 +542,20 @@ class CrisisStateEngine:
                req.id not in committed_map and req.assigned_vehicle_id:
                 committed_map[req.id] = (req.assigned_vehicle_id, req.assigned_depot_id)
         # In-flight missions on non-disrupted routes are preserved too (they are
-        # real-world commitments), unless their depot is now blocked.
+        # real-world commitments), UNLESS:
+        #  - their depot is now blocked (goods must be re-sourced), or
+        #  - their destination is inside the hazard zone (the optimizer must
+        #    re-evaluate them; it will classify them BLOCKED_HAZARD rather
+        #    than silently keep a delivery into an active hazard).
         for req_id, (v_id, d_id) in list(committed_map.items()):
             if d_id == depot_id:
-                del committed_map[req_id]  # depot gone: must re-source the goods
+                del committed_map[req_id]
+                continue
+            req = self.requests.get(req_id)
+            if req and lat is not None and lng is not None:
+                if haversine_distance_km(req.location.lat, req.location.lng,
+                                         lat, lng) <= hazard_radius_km:
+                    del committed_map[req_id]
 
         blocked_depots = [depot_id] if depot_id else []
         blocked_locs = [(lat, lng, hazard_radius_km)] if (lat is not None and lng is not None) else []

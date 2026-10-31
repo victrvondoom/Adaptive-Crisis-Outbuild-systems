@@ -441,22 +441,84 @@ def triage_aid_request(payload: TriagePayload,
                        org_id: str = Depends(org_context)):
     guard(user, org_id, Permission.CREATE_REQUEST)
     eng = engine_for(org_id)
-    req, evidence = eng.agent1.triage_message(
-        raw_text=payload.raw_text,
-        requester=payload.requester or "Field Dispatch Emergency",
-        lat=payload.lat if payload.lat is not None else 14.5995,
-        lng=payload.lng if payload.lng is not None else 120.9842,
-        sector=payload.sector or "Central Metro",
-        existing_requests=list(eng.requests.values()))
-    eng.requests[req.id] = req
-    eng.persist_request_write_through(req)
-    eng.log_audit(
-        event_type="REQUEST_TRIAGED", actor_id="AGENT-01-NEED", actor_type=ActorType.AGENT,
-        entity_type="AidRequest", entity_id=req.id,
-        summary=(f"Parsed request from {req.requester_name}: {len(req.items)} items "
-                 f"with {req.priority.value} priority"),
-        details={"evidence": evidence})
-    return {"success": True, "request": req.model_dump(), "evidence": evidence}
+    from . import agents_runtime
+    from .agents_runtime import ContextEnvelope, run_action
+    from .models import POLICY_VERSION
+
+    # Versioned, tenant-scoped, permission-aware context envelope.
+    context = ContextEnvelope(
+        organization_id=org_id, actor_id=user.user_id,
+        actor_role=user.role_in(org_id) or "",
+        mission_id=None, mission_plan_version=eng.current_plan_id,
+        optimization_run_id=(eng.plans.get(eng.current_plan_id).optimization_run_id
+                            if eng.plans.get(eng.current_plan_id) else None),
+        policy_version=POLICY_VERSION,
+        data_snapshot_timestamp=time.time(),
+        evidence_references=[],
+        current_operational_state={"request_count": len(eng.requests),
+                                   "active_plan": eng.current_plan_id},
+        permitted_actions=["CREATE_AID_REQUEST"],
+        prompt_version="triage-v2",
+    )
+    context.check_freshness(time.time(), eng.current_plan_id, POLICY_VERSION)
+
+    def handler(ctx):
+        req, evidence = eng.agent1.triage_message(
+            raw_text=payload.raw_text,
+            requester=payload.requester or "Field Dispatch Emergency",
+            lat=payload.lat if payload.lat is not None else 14.5995,
+            lng=payload.lng if payload.lng is not None else 120.9842,
+            sector=payload.sector or "Central Metro",
+            existing_requests=list(eng.requests.values()))
+        eng.requests[req.id] = req
+        eng.persist_request_write_through(req)
+        eng.log_audit(
+            event_type="REQUEST_TRIAGED", actor_id="AGENT-01-NEED",
+            actor_type=ActorType.AGENT, entity_type="AidRequest", entity_id=req.id,
+            summary=(f"Parsed request from {req.requester_name}: {len(req.items)} items "
+                     f"with {req.priority.value} priority"),
+            details={"evidence": evidence, "context_version": ctx.context_version,
+                     "provider": ctx.provider})
+        return {
+            "request": req.model_dump(),
+            "evidence": evidence,
+            "requires_human_review": evidence.get("requires_human_review", False),
+        }
+
+    triage_schema = {
+        "type": "object",
+        "required": ["request", "requires_human_review"],
+        "properties": {
+            "request": {"type": "object", "required": ["id", "priority", "items"],
+                        "properties": {"id": {"type": "string"},
+                                       "priority": {"type": "string"},
+                                       "items": {"type": "array"}}},
+            "requires_human_review": {"type": "boolean"},
+        },
+    }
+
+    def postcondition(output):
+        # Success is defined by VERIFIED STATE, not model text:
+        # the request exists in the engine, belongs to this tenant in the DB,
+        # and its items were not invented (evidence present per item).
+        rid = output["request"]["id"]
+        from .db import session_scope
+        from . import persistence
+        with session_scope() as session:
+            row = persistence.get_request(session, org_id, rid)
+        return row is not None and rid in eng.requests
+
+    record = run_action(
+        agent_id="AGENT-01-NEED", action_id="CREATE_AID_REQUEST", org_id=org_id,
+        context=context, prompt=payload.raw_text, schema=triage_schema,
+        handler=handler, postcondition=postcondition)
+    return {"success": record["status"] in ("SUCCEEDED", "REVIEW_REQUIRED"),
+            "status": record["status"],
+            "provider": record["provider"],
+            "execution_id": record["execution_id"],
+            "request": record["output"].get("request"),
+            "evidence": record["output"].get("evidence"),
+            "requires_human_review": record["output"].get("requires_human_review", False)}
 
 
 @app.post("/api/v1/deliveries/confirm")
