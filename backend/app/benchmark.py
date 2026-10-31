@@ -205,14 +205,10 @@ def plan_optimizer(sc: BenchmarkScenario) -> Tuple[Dict[str, List[str]], float]:
     return routes, planning_time
 
 
-_sc_req_cache: Dict[int, Dict[str, AidRequest]] = {}
-
-
 def sc_req_lookup(sc: BenchmarkScenario, req_id: str) -> AidRequest:
-    key = id(sc)
-    if key not in _sc_req_cache:
-        _sc_req_cache[key] = {r.id: r for r in sc.requests}
-    return _sc_req_cache[key][req_id]
+    if not hasattr(sc, "_req_lookup"):
+        sc._req_lookup = {r.id: r for r in sc.requests}
+    return sc._req_lookup[req_id]
 
 
 # ----------------------------------------------------------------------

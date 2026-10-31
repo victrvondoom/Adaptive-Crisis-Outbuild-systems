@@ -30,9 +30,9 @@ Thumbs.db
 # OutSystems
 *.osp
 
-# Benchmark outputs (large files)
-benchmarks/results/*.json
-benchmarks/results/*.csv
+# Benchmarks: keep result artifacts (small JSON evidence files, deliberately
+# committed for reproducibility). Only exclude raw debug dumps.
+benchmarks/results/*.tmp.json
 
 # Secrets
 *.pem

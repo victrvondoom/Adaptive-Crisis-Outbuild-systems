@@ -1,94 +1,90 @@
 # AIDNEXUS ONE — Adaptive Crisis Outbuild Systems
 
-> **The Self-Healing Humanitarian Network.**
+> **The Self-Healing Humanitarian Network.** Evidence-driven, agentic mission control for humanitarian relief dispatches. OutSystems Build for the Future Hackathon 2026 entry.
 
-## Overview
+## What this actually is (implementation status, honestly stated)
 
-AIDNEXUS ONE is an end-to-end, evidence-driven, agentic humanitarian mission-control system built for the **OutSystems Build for the Future Hackathon 2026**.
+A **local, self-contained demo application**: a FastAPI backend (Python) that
+plans, simulates and audits humanitarian dispatch missions, serving a vanilla
+JS mission-control dashboard. It runs a deterministic crisis scenario
+(seed=42: 200 aid requests, 3 depots, 10 vehicles, 12 volunteers) in memory.
 
-It enables nonprofit organizations to receive aid requests, verify operational requirements, allocate scarce resources, coordinate volunteers, approve dispatches, detect disruptions, intelligently replan failed missions, verify deliveries, and measure their real impact.
+| Capability | Status |
+|---|---|
+| Optimization-based dispatch planning (priority insertion + priority-preserving 2-opt) | ✅ Implemented (heuristic — not MIP/OR-Tools) |
+| Humanitarian priority policy with versioned plan data contract | ✅ Implemented |
+| Plan-derived dispatch queue (optimizer output is the only execution order) | ✅ Implemented, concordance-tested |
+| Disruption recovery (depot outage, hazard zones, vehicle breakdown) with human approval gate | ✅ Implemented |
+| 3 agents with tested action contracts (triage / planning / recovery) | ✅ Implemented (deterministic; no LLM) |
+| Idempotent proof-of-delivery, state-machine-validated transitions, hash-chained audit | ✅ Implemented |
+| Real 4-strategy benchmark simulation with integrity metrics | ✅ Implemented |
+| 81-test automated suite | ✅ Implemented |
+| LLM integration (Bedrock/Azure), OutSystems ODC app, Twilio SMS, auth/multi-tenancy, DB persistence | ❌ Not implemented (spec-only; see `docs/context/CURRENT_STATE.md`) |
 
-### Core Differentiator
+## Quick start
 
-**Autonomous Humanitarian Disruption Recovery.**
+```bash
+cd backend
+pip install -r requirements.txt
 
-When a warehouse becomes unavailable after a dispatch plan has been approved, AIDNEXUS ONE:
+# Run the tests (81 tests, ~3 s)
+python -m pytest
 
-1. Records the disruption with evidence
-2. Identifies all impacted assignments
-3. Preserves completed deliveries and valid commitments
-4. Recalculates feasible alternatives using mathematical optimization
-5. Compares original and revised plans side-by-side
-6. Displays unresolved demands with explanations
-7. Requests human authorization before any changes
-8. Applies the new plan exactly once after approval
-9. Produces an auditable operational receipt
+# Run the app
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# Open http://127.0.0.1:8000/
+```
 
-**No aid recipient is silently rejected by AI. No AI-generated content changes real operational state without human validation.**
+Windows 1-click: run `start.bat` (repo root's parent folder) or `start.ps1`.
 
-## Technology Stack
+## Run the benchmark
 
-| Layer | Technology |
-|-------|-----------|
-| Application Platform | OutSystems Developer Cloud (ODC) |
-| AI/Agentic | ODC Agent Experience + AWS Bedrock / Azure AI |
-| Optimization Engine | Python + FastAPI + Google OR-Tools |
-| Communication | Twilio (SMS notifications) |
-| Hosting | OutSystems Cloud + External microservice |
+```bash
+cd backend
+python -m app.benchmark        # runs 9-run matrix, writes JSON artifacts to benchmarks/results/
+```
+Or in the app: **Benchmark Arena → Run** (live simulation via API).
+Results are computed from real execution traces — they vary by seed and are reproducible.
 
-## Project Structure
+## Project structure (actual)
 
 ```
 aidnexus-one/
-  README.md
-  LICENSE
-  .gitignore
-  .env.example
-  docs/                          # All planning and specification documents
-  outsystems/                    # OutSystems application blueprints
-  services/optimizer/            # Python optimization microservice
-  services/agent-adapters/       # Agent integration adapters
-  benchmarks/                    # Scenario definitions and results
-  tests/                         # Test suites
-  scripts/                       # Utility scripts
-  assets/                        # Static assets
+  AGENTS.md                      # authoritative project instructions
+  backend/
+    app/                         # FastAPI app: models, optimizer, agents, state engine, benchmark, API
+    tests/                       # 81 tests: optimizer, state machine, queue concordance, agents, metrics, API
+    requirements.txt, pytest.ini
+  frontend/                      # vanilla JS/CSS/HTML mission-control dashboard (no build step, no CDN)
+  benchmarks/results/            # committed benchmark artifacts (JSON)
+  docs/
+    audit/                       # initial state, ranked findings, bugs fixed, unresolved issues, final report
+    context/                     # current state, invariants, decision log, worklog
+    metrics/                     # metric registry, verified metrics
+    agents/                      # agent action catalog, agent evaluation report
+    benchmarks/                  # final benchmark report
+    quality/                     # security review, UX review
+    (plus the original planning/spec documents, clearly aspirational where not implemented)
+  ../outsystems/                 # ODC application blueprints (spec only — no ODC app is built)
 ```
 
-## Competition
+## Core differentiator
 
-- **Hackathon**: OutSystems Build for the Future 2026
-- **Development Window**: November 2–9, 2026
-- **Category**: Social Good & Impact / Artificial Intelligence
+**Autonomous humanitarian disruption recovery with evidence.** When a depot
+floods or a route is severed, Agent 3 assesses impact, completed deliveries are
+sealed as immutable, Agent 2 replans around the disruption in milliseconds, and
+**nothing changes until a human approves** — with a real before/after diff and a
+hash-chained audit trail. Benchmark: replanning recovers 44% of
+disruption-affected deliveries (baselines recover 0%) and delivers +10–18% more
+missions than static optimization (`docs/benchmarks/FINAL_BENCHMARK_REPORT.md`).
 
-## Quick Start — Run the Dynamic System
+## Honesty statement
 
-### Option 1: 1-Click Launch (Windows)
-Double-click `start.bat` in the project root or run:
-```powershell
-.\start.ps1
-```
-
-### Option 2: Direct Command Line
-```bash
-# 1. Start the FastAPI Simulation & Optimization Engine
-cd aidnexus-one/backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-
-# 2. Open Mission Control in your browser:
-# Navigate to: http://127.0.0.1:8000/
-```
-
-## Dynamic Capabilities Verified
-
-1. **Mission Command Digital Twin**: Real-time interactive crisis map with coordinate projections, vehicle tracking, dynamic inventory gauges, and live request status badges.
-2. **Autonomous Disruption Recovery**: 1-click disaster injectors (bridge collapse, depot flood, vehicle failure) triggering Agent 3 incident analysis, immutable completed delivery preservation, and mathematical replanning.
-3. **Human-in-the-Loop Governance**: Side-by-side plan diff with coordinator sign-off requirement before any operational state is mutated.
-4. **Agent 1 Need-to-Mission Triage**: Unstructured distress message parser with urgency classification, structured work order extraction, and Sphere Standards compliance verification.
-5. **Field Volunteer Mobile Simulator**: Mobile delivery workflow with digital touch-signature capture and real-time depot inventory decrements.
-6. **Reproducible Benchmark Arena**: Empirical comparison matrix running 200 requests under dual disruption stress (AIDNEXUS ONE vs Static Greedy vs FCFS).
-7. **Evidence & Audit Ledger**: Append-only cryptographic SHA-256 audit log stream.
+This README describes the implemented system only. aspirational/planned
+capabilities are marked ❌ and detailed in `docs/context/CURRENT_STATE.md`.
+The benchmark numbers above come from the committed artifacts in
+`benchmarks/results/` and can be regenerated in ~1 second.
 
 ## License
 
-MIT License — See [LICENSE](./LICENSE) for details.
-
+MIT — see [LICENSE](./LICENSE).
