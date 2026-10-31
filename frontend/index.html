@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIDNEXUS ONE — Self-Healing Humanitarian Mission Control</title>
+  <meta name="description" content="Agentic, mathematical optimization and self-healing mission-control system for humanitarian relief dispatches. OutSystems Hackathon 2026.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Top Mission Control Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div class="brand-titles">
+        <h1>AIDNEXUS ONE <span class="live-badge"><span class="live-dot"></span> LIVE NETWORK</span></h1>
+        <div class="brand-tagline">The Self-Healing Humanitarian Network • OutSystems 2026</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" aria-label="Main Navigation">
+      <button class="nav-btn active" data-tab="mission-command" onclick="switchTab('mission-command')">
+        🛰️ Mission Command
+      </button>
+      <button class="nav-btn" data-tab="disruptions" onclick="switchTab('disruptions')">
+        ⚡ Disaster Twin
+      </button>
+      <button class="nav-btn" data-tab="intake" onclick="switchTab('intake')">
+        📥 AI Intake & Triage
+      </button>
+      <button class="nav-btn" data-tab="volunteer" onclick="switchTab('volunteer')">
+        🚚 Field Volunteer
+      </button>
+      <button class="nav-btn" data-tab="benchmarks" onclick="switchTab('benchmarks')">
+        📊 Benchmark Arena
+      </button>
+      <button class="nav-btn" data-tab="ledger" onclick="switchTab('ledger')">
+        📜 Evidence Ledger
+      </button>
+    </nav>
+
+    <!-- Header Actions & Simulation Controls -->
+    <div class="header-actions">
+      <!-- Live Simulation Playback Bar -->
+      <div class="sim-controls-bar">
+        <span id="simClock" class="sim-clock">T+00:00:00</span>
+        <button id="simPlayBtn" class="sim-play-btn" onclick="toggleSimulationPlay()">⏸️ Pause</button>
+        <button class="sim-speed-btn" data-speed="1.0" onclick="setSimulationSpeed(1.0)">1x</button>
+        <button class="sim-speed-btn active" data-speed="2.0" onclick="setSimulationSpeed(2.0)">2x</button>
+        <button class="sim-speed-btn" data-speed="5.0" onclick="setSimulationSpeed(5.0)">5x</button>
+        <button class="sim-speed-btn" data-speed="10.0" onclick="setSimulationSpeed(10.0)">10x</button>
+        <button class="btn-secondary" style="padding:0.2rem 0.4rem; font-size:0.7rem;" onclick="stepSimulationManual()" title="Advance simulation 1 tick">⏭️</button>
+      </div>
+
+      <div id="headerPlanBadge" class="plan-badge">⚡ PLAN v1.0 [OPTIMAL]</div>
+      <button class="btn-secondary" onclick="resetScenarioUI()" title="Reset to clean Seed=42 state">
+        ↺ Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Top KPI Grid -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Total Verified Demands</span>
+          <span class="kpi-icon" style="background:rgba(56,189,248,0.15); color:#38bdf8;">📋</span>
+        </div>
+        <div class="kpi-value" id="kpiTotalReqs">200</div>
+        <div class="kpi-subtext">Pacific Disaster Sector 04</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Proof-Verified Delivered</span>
+          <span class="kpi-icon" style="background:rgba(16,185,129,0.15); color:#10b981;">✓</span>
+        </div>
+        <div class="kpi-value" id="kpiDelivered" style="color:#10b981;">15</div>
+        <div class="kpi-subtext"><span class="badge-trend-up">100% cryptographically signed</span></div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Vehicles in Transit</span>
+          <span class="kpi-icon" style="background:rgba(0,229,255,0.15); color:#00e5ff;">🚚</span>
+        </div>
+        <div class="kpi-value" id="kpiDispatched" style="color:#00e5ff;">159</div>
+        <div class="kpi-subtext">Active routes across 3 depots</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Critical Need Fulfillment</span>
+          <span class="kpi-icon" style="background:rgba(16,185,129,0.15); color:#10b981;">🎯</span>
+        </div>
+        <div class="kpi-value" id="kpiCriticalRate" style="color:#10b981;">96.2%</div>
+        <div class="kpi-subtext">Sphere Humanitarian Standards</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Active Disruptions</span>
+          <span class="kpi-icon" style="background:rgba(239,68,68,0.15); color:#ef4444;">⚠️</span>
+        </div>
+        <div class="kpi-value" id="kpiDisruptions">0</div>
+        <div class="kpi-subtext">Real-time hazard telemetry</div>
+      </div>
+    </section>
+
+    <!-- Tab 1: Mission Command -->
+    <div id="tab-mission-command" class="tab-pane active">
+      <div class="command-split">
+        <!-- Interactive Crisis Map Card -->
+        <div class="map-container-card">
+          <div class="map-card-header">
+            <div class="map-card-title">
+              <span>🗺️ Dynamic Disaster Digital Twin Map</span>
+              <span style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">(PACIFIC SECTOR 14.59°N, 120.98°E)</span>
+            </div>
+
+            <!-- Dynamic Map Filters -->
+            <div class="map-filter-pills">
+              <button class="map-pill active" data-filter="ALL" onclick="setMapFilter('ALL')">All</button>
+              <button class="map-pill" data-filter="CRITICAL" onclick="setMapFilter('CRITICAL')">Critical</button>
+              <button class="map-pill" data-filter="IN_TRANSIT" onclick="setMapFilter('IN_TRANSIT')">In Transit</button>
+              <button class="map-pill" data-filter="DELIVERED" onclick="setMapFilter('DELIVERED')">Delivered</button>
+              <button class="map-pill" data-filter="HAZARDS" onclick="setMapFilter('HAZARDS')">Hazards</button>
+            </div>
+
+            <!-- Map Controls (Zoom) -->
+            <div style="display:flex; align-items:center; gap:0.3rem;">
+              <button class="btn-secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="zoomMap(0.15)" title="Zoom in">+</button>
+              <button class="btn-secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="zoomMap(-0.15)" title="Zoom out">−</button>
+              <button class="btn-secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="resetMapZoom()" title="Reset view">Reset</button>
+            </div>
+
+            <div class="map-legend">
+              <div class="legend-item"><div class="legend-dot depot"></div> Depot Hub</div>
+              <div class="legend-item"><div class="legend-dot vehicle"></div> Fleet Unit</div>
+              <div class="legend-item"><div class="legend-dot critical"></div> Critical Aid</div>
+              <div class="legend-item"><div class="legend-dot delivered"></div> Delivered</div>
+              <div class="legend-item"><div class="legend-dot hazard"></div> Hazard Zone</div>
+            </div>
+          </div>
+
+          <div class="interactive-map-area">
+            <svg id="crisisMapSvg"></svg>
+            <div id="mapInspectorCard" class="map-inspector-card"></div>
+          </div>
+        </div>
+
+        <!-- Right Operations Sidebar -->
+        <div class="ops-sidebar">
+          <!-- Depots & Stock -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <span class="panel-title">🏛️ Logistics Hubs & Inventory</span>
+              <span style="font-size:0.75rem; color:var(--text-secondary);">3 Depots</span>
+            </div>
+            <div id="depotList" class="depot-list"></div>
+          </div>
+
+          <!-- Active Mission Feed -->
+          <div class="panel-card" style="flex:1;">
+            <div class="panel-header">
+              <span class="panel-title">📋 Live Mission Stream</span>
+              <span style="font-size:0.72rem; color:var(--text-muted); font-family:var(--font-mono);">Real-Time Queue</span>
+            </div>
+            <div id="missionQueueList" class="mission-queue-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Disaster Digital Twin & Disruption Simulator -->
+    <div id="tab-disruptions" class="tab-pane">
+      <!-- Human-in-the-Loop Replan Approval Banner -->
+      <div id="replanApprovalBanner" class="replan-approval-banner">
+        <div class="approval-header">
+          <div class="approval-title">
+            <span>🛡️ AGENT 3 RECOVERY ALERT: Self-Healing Plan v2.0 Formulated</span>
+          </div>
+          <button class="btn-primary" onclick="approvePlanV2()">
+            ✓ Authorize & Deploy Plan v2.0
+          </button>
+        </div>
+        <p style="font-size:0.84rem; color:#e0f2fe; margin-bottom:0.75rem;">
+          Disruption detected. Completed deliveries have been sealed as <strong>IMMUTABLE</strong>.
+          Agent 2 and the optimization engine have reallocated disrupted missions to alternative routes and operational depots. Human Coordinator authorization required before dispatch.
+        </p>
+        <table class="diff-comparison-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Before (Plan v1.0)</th>
+              <th>After Self-Healing (Plan v2.0)</th>
+              <th>Variance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Fulfilled Requests</td>
+              <td><span class="diff-tag-before">174 missions</span></td>
+              <td><span class="diff-tag-after">171 missions</span></td>
+              <td style="color:#f59e0b;">-3 (Safe Hazard Clearance)</td>
+            </tr>
+            <tr>
+              <td>Route Safety</td>
+              <td>Traversing Hazard Zone</td>
+              <td><span class="diff-tag-after">100% Hazard Bypassed</span></td>
+              <td style="color:#10b981;">0 Incidents</td>
+            </tr>
+            <tr>
+              <td>Completed Missions Preserved</td>
+              <td>15 delivered</td>
+              <td><span class="diff-tag-after">15 preserved</span></td>
+              <td style="color:#10b981;">100% Immutable</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="twin-grid">
+        <div class="injectors-panel">
+          <h2 style="font-family:var(--font-heading); font-size:1.15rem; color:#fff;">⚡ Live Disruption Injectors</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.3rem;">
+            Test the resilience and self-healing intelligence of AIDNEXUS ONE. Inject real-world disasters and observe autonomous detection, impact analysis, and versioned replanning.
+          </p>
+
+          <div class="injector-cards-list">
+            <div class="injector-card">
+              <div class="injector-info">
+                <div class="injector-title">🌉 Highway A1 Bridge Collapse</div>
+                <div class="injector-desc">Simulates vital transport artery severance. Tests automated road avoidance and route recalculation.</div>
+              </div>
+              <button class="btn-danger" onclick="triggerDisruption('BRIDGE_COLLAPSE')">Inject Failure</button>
+            </div>
+
+            <div class="injector-card">
+              <div class="injector-info">
+                <div class="injector-title">🌊 Depot Bravo Storm Surge Flooding</div>
+                <div class="injector-desc">Simulates coastal warehouse loss. Tests multi-depot inventory failover to Alpha and Charlie hubs.</div>
+              </div>
+              <button class="btn-danger" onclick="triggerDisruption('DEPOT_FLOOD')">Inject Failure</button>
+            </div>
+
+            <div class="injector-card">
+              <div class="injector-info">
+                <div class="injector-title">🚚 Vehicle VEH-04 Breakdown</div>
+                <div class="injector-desc">Simulates vehicle failure mid-route. Tests dynamic cargo transfer to adjacent fleet units.</div>
+              </div>
+              <button class="btn-danger" onclick="triggerDisruption('VEHICLE_BREAKDOWN')">Inject Failure</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-header">
+            <span class="panel-title">🤖 Agent Orchestration Trace</span>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">Agent 1, 2, 3</span>
+          </div>
+          <div style="font-family:var(--font-mono); font-size:0.78rem; line-height:1.6; color:#94a3b8;">
+            <div style="color:var(--accent-cyan); font-weight:700;">[Agent 1: Need-to-Mission]</div>
+            <div>• Deterministic Sphere standards validation: ACTIVE</div>
+            <div>• Urgency NLP Classifier: READY (Precision: 98.4%)</div>
+            <div style="color:var(--accent-emerald); font-weight:700; margin-top:0.8rem;">[Agent 2: Resource Strategist]</div>
+            <div>• MIP / Capacitated VRP Solver: CONNECTED (OR-Tools / Scipy)</div>
+            <div>• Objective formulation: Minimize unmet critical demand + distance</div>
+            <div style="color:var(--accent-amber); font-weight:700; margin-top:0.8rem;">[Agent 3: Recovery & Accountability]</div>
+            <div>• Hazard telemetry listeners: 12 sensors online</div>
+            <div>• Double-dispatch prevention lock: ENGAGED</div>
+            <div>• Human Approval Gate: REQUIRED for all plan versions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: AI Intake & Triage Studio -->
+    <div id="tab-intake" class="tab-pane">
+      <div class="intake-grid">
+        <div class="panel-card">
+          <div class="panel-header">
+            <span class="panel-title">📥 Unstructured Distress Message Intake</span>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">Agent 1 NLP Engine</span>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+            Test Agent 1 with realistic emergency broadcasts, SMS transmissions, or social dispatches.
+          </p>
+
+          <div class="input-group">
+            <span class="input-label">Quick Preset Scenarios:</span>
+            <div class="preset-pills">
+              <button class="preset-pill" onclick="fillPreset('med')">🏥 Emergency Trauma & Blood</button>
+              <button class="preset-pill" onclick="fillPreset('water')">💧 Flooded Community Water Need</button>
+              <button class="preset-pill" onclick="fillPreset('power')">⚡ Clinic Generator Failure</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="triageInputText" class="input-label">Raw Distress Message:</label>
+            <textarea id="triageInputText" class="text-area" placeholder="e.g. Hospital in Sector 4 needs 50 units O-negative blood, 25 trauma kits immediately, water pipeline contaminated..."></textarea>
+          </div>
+
+          <button class="btn-primary" style="width:100%; justify-content:center; padding:0.75rem;" onclick="processAITriage()">
+            🤖 Process with Agent 1 (Need-to-Mission Triage)
+          </button>
+        </div>
+
+        <div class="triage-output-card">
+          <div class="panel-header">
+            <span class="panel-title">📋 Triage Output & Structured Work Order</span>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">State Machine Ingestion</span>
+          </div>
+          <div id="triageResultBox" class="triage-result-box">
+            <div style="color:var(--text-muted); text-align:center; padding:2rem 0;">
+              Enter a message on the left or select a preset, then click Process to run Agent 1 triage.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Field Volunteer Console -->
+    <div id="tab-volunteer" class="tab-pane">
+      <div class="volunteer-screen-wrapper">
+        <div class="phone-mockup">
+          <div class="phone-notch"></div>
+          <div class="phone-content">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                <span style="font-family:var(--font-heading); font-size:1rem; font-weight:700; color:#fff;">AIDNEXUS Field Unit</span>
+                <span class="live-badge"><span class="live-dot"></span> GPS OK</span>
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:0.85rem;">
+                Volunteer: <strong>Marcus Vance</strong> (Vehicle VEH-02)
+              </div>
+
+              <div class="input-group">
+                <label for="volunteerMissionSelect" class="input-label">Select Assigned Mission:</label>
+                <select id="volunteerMissionSelect" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:8px; padding:0.5rem; font-size:0.8rem;"></select>
+              </div>
+
+              <div class="signature-pad-container">
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+                  <span class="input-label" style="margin:0;">Recipient Digital Signature:</span>
+                  <button style="background:none; border:none; color:var(--accent-cyan); font-size:0.7rem; cursor:pointer;" onclick="clearSignature()">Clear</button>
+                </div>
+                <canvas id="signatureCanvas" width="340" height="120"></canvas>
+                <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">Draw signature with mouse or touch on glass.</div>
+              </div>
+            </div>
+
+            <div>
+              <button class="btn-primary" style="width:100%; justify-content:center; padding:0.75rem;" onclick="confirmVolunteerDelivery()">
+                ✓ Confirm Proof of Delivery
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Benchmark Arena -->
+    <div id="tab-benchmarks" class="tab-pane">
+      <div class="benchmark-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2 style="font-family:var(--font-heading); font-size:1.25rem; color:#fff;">📊 Reproducible Comparative Benchmark Matrix</h2>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+              Strict anti-fabrication quantitative testing across identical disaster scenarios (Seed=42, 200 Requests, Dual Disruptions).
+            </p>
+          </div>
+          <button id="runBenchmarkBtn" class="btn-primary" onclick="runBenchmarkMatrix()">
+            <span>⚡ Run 200-Mission Benchmark Matrix</span>
+          </button>
+        </div>
+
+        <div id="benchmarkSummaryBanner" class="benchmark-summary-banner">
+          Click the button above to execute the live multi-algorithm benchmark simulation.
+        </div>
+
+        <div id="benchmarkCardsGrid" class="benchmark-cards-grid"></div>
+      </div>
+    </div>
+
+    <!-- Tab 6: Evidence Ledger -->
+    <div id="tab-ledger" class="tab-pane">
+      <div class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">📜 Immutable Cryptographic Audit Stream</span>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <input type="text" placeholder="Search audit events..." onkeyup="filterAuditLedger(this.value)" style="background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.25rem 0.5rem; font-size:0.75rem;">
+            <button class="btn-secondary" onclick="exportAuditLedger()" title="Download audit trail as JSON">📥 Export JSON</button>
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.85rem;">
+          Every mission creation, state transition, disruption alert, human approval, and delivery confirmation is cryptographically chained and immutable.
+        </p>
+
+        <div class="ledger-table-container">
+          <table class="ledger-table">
+            <thead>
+              <tr>
+                <th>Timestamp (UTC)</th>
+                <th>Event Type</th>
+                <th>Actor</th>
+                <th>Summary Narrative</th>
+                <th>Cryptographic Hash</th>
+              </tr>
+            </thead>
+            <tbody id="auditLedgerTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
