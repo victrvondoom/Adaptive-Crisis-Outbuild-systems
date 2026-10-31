@@ -38,6 +38,16 @@ Not marked complete: the remaining ~781 PROPOSED features are specifications,
 not implementations — the portfolio explicitly says so. External blockers:
 OIDC IdP, LLM keys, ODC access, PostgreSQL credentials, git remote.
 
+## Dynamic atlas addendum (post-c958b74)
+The feature atlas was made dynamic and fully functional: a live portfolio API
+(list/filter/search/paginate/summary/domains/single-record/admin-gated validation)
+backed by app/feature_atlas_api.py with mtime-based hot-reload of the JSONL registry,
+plus a 'Feature Atlas' UI tab with summary cards, 36 clickable domain cards, live
+filters, debounced search and pagination. Verified by 16 new API tests
+(tests/test_feature_atlas_api.py) and a new browser journey
+(test_feature_atlas_journey, screenshot feature_atlas_desktop.png).
+Suite: 183 backend tests + 9 browser journeys, all green.
+
 ## Next milestone
 Wave 2 (beneficiary consent + household profiles), then Wave 4 supply batch —
 ordered by the dependency graph and priority model.

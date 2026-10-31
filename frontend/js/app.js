@@ -87,6 +87,7 @@ window.loginAs = async function (email) {
     sessionStorage.setItem("aidnexus_org", auth.orgId);
     document.getElementById("loginOverlay").style.display = "none";
     await syncStateWithBackend();
+    if (state.activeTab === "atlas") loadAtlas();
   } catch (e) {
     showToast("Login failed: " + e, "error");
   }
@@ -247,6 +248,7 @@ function switchTab(tabId) {
     pane.classList.toggle("active", pane.id === `tab-${tabId}`);
   });
   if (tabId === "mission-command") renderCrisisMap();
+  if (tabId === "atlas" && auth.token && !atlasState.loaded) loadAtlas();
 }
 window.switchTab = switchTab;
 
@@ -922,6 +924,142 @@ window.resetScenarioUI = async function () {
     showToast("Scenario reset to clean baseline (seed=42).", "success");
   } catch (e) {
     showToast("Backend unreachable — scenario not reset.", "error");
+  }
+};
+
+// ------------------------------------------------------------------
+// Live Feature Atlas (Phase III): fully dynamic portfolio browsing
+// ------------------------------------------------------------------
+const atlasState = { loaded: false, page: 0, pageSize: 25, total: 0, domains: [], summary: null };
+let atlasSearchTimer = null;
+
+window.atlasSearchDebounced = function () {
+  clearTimeout(atlasSearchTimer);
+  atlasSearchTimer = setTimeout(() => { atlasState.page = 0; renderAtlasFeatures(); }, 250);
+};
+
+window.atlasPage = function (dir) {
+  const maxPage = Math.max(0, Math.ceil(atlasState.total / atlasState.pageSize) - 1);
+  atlasState.page = Math.min(maxPage, Math.max(0, atlasState.page + dir));
+  renderAtlasFeatures();
+};
+
+window.selectAtlasDomain = function (domainId) {
+  const sel = document.getElementById("atlasDomain");
+  sel.value = domainId || "";
+  atlasState.page = 0;
+  renderAtlasFeatures();
+};
+
+async function loadAtlas() {
+  if (!auth.token) return;
+  try {
+    const [sumRes, domRes] = await Promise.all([
+      apiFetch(`${API_BASE}/features/summary`),
+      apiFetch(`${API_BASE}/features/domains`),
+    ]);
+    if (!sumRes.ok || !domRes.ok) throw new Error("atlas fetch failed");
+    atlasState.summary = await sumRes.json();
+    atlasState.domains = (await domRes.json()).domains;
+    atlasState.loaded = true;
+    renderAtlasSummary();
+    renderAtlasDomains();
+    // populate the domain filter
+    const sel = document.getElementById("atlasDomain");
+    sel.innerHTML = `<option value="">All domains</option>` +
+      atlasState.domains.map(d =>
+        `<option value="${escapeHtml(d.domain_id)}">${escapeHtml(d.domain_id)} (${d.features})</option>`).join("");
+    await renderAtlasFeatures();
+  } catch (e) {
+    showToast("Feature atlas unavailable: " + e, "error");
+  }
+}
+
+function renderAtlasSummary() {
+  const s = atlasState.summary;
+  if (!s) return;
+  const el = document.getElementById("atlasSummary");
+  if (!el) return;
+  const cards = [
+    [s.total_records, "total catalogued"],
+    [s.portfolio, "portfolio (non-rejected)"],
+    [s.domains, "domains"],
+    [s.min_per_domain, "min features / domain"],
+    [s.by_status["EXISTING_VERIFIED"] || 0, "existing verified"],
+    [s.by_status["IMPLEMENTED_TESTED"] || 0, "implemented + tested"],
+    [(s.by_status["BLOCKED_EXTERNAL_DEPENDENCY"] || 0), "blocked (external)"],
+    [s.by_status["REJECTED"] || 0, "rejected candidates"],
+  ];
+  el.innerHTML = cards.map(([v, l]) =>
+    `<div class="atlas-stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+}
+
+function renderAtlasDomains() {
+  const el = document.getElementById("atlasDomainsGrid");
+  if (!el) return;
+  el.innerHTML = atlasState.domains.map(d => `
+    <div class="atlas-domain-card" role="button" tabindex="0"
+         onclick="selectAtlasDomain('${escapeHtml(d.domain_id)}')"
+         onkeydown="if(event.key==='Enter')selectAtlasDomain('${escapeHtml(d.domain_id)}')"
+         aria-label="Filter atlas to domain ${escapeHtml(d.domain_id)}">
+      <div class="dname">${escapeHtml(d.domain_id)}</div>
+      <div class="dnum">${d.features} features · ${d.verified} verified ·
+        ${d.implemented_tested} new · score ${d.avg_priority_score}</div>
+    </div>`).join("");
+}
+
+async function renderAtlasFeatures() {
+  const listEl = document.getElementById("atlasFeatureList");
+  if (!listEl) return;
+  const domain = document.getElementById("atlasDomain").value;
+  const status = document.getElementById("atlasStatus").value;
+  const priority = document.getElementById("atlasPriority").value;
+  const search = document.getElementById("atlasSearch").value.trim();
+  const params = new URLSearchParams({ limit: atlasState.pageSize, offset: atlasState.page * atlasState.pageSize });
+  if (domain) params.set("domain", domain);
+  if (status) params.set("status", status);
+  if (priority) params.set("priority", priority);
+  if (search) params.set("search", search);
+  try {
+    const res = await apiFetch(`${API_BASE}/features?${params}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    atlasState.total = data.total;
+    listEl.innerHTML = data.features.map(f => `
+      <div class="atlas-feature">
+        <div style="display:flex; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
+          <span class="fid">${escapeHtml(f.feature_id)} · ${escapeHtml(f.domain_id)}</span>
+          <span>
+            <span class="status-chip ${escapeHtml(f.current_status)}" style="margin-right:0.3rem;">${escapeHtml(f.current_status)}</span>
+            <span class="status-chip dispatched">${escapeHtml(f.priority)} · ${f.priority_score}</span>
+          </span>
+        </div>
+        <div class="fname">${escapeHtml(f.name)}</div>
+        <div class="fdesc">${escapeHtml(f.description)}</div>
+      </div>`).join("") || `<div class="queue-empty">No features match these filters.</div>`;
+    const maxPage = Math.max(0, Math.ceil(atlasState.total / atlasState.pageSize) - 1);
+    document.getElementById("atlasPageInfo").textContent =
+      `page ${atlasState.page + 1} / ${maxPage + 1} · ${atlasState.total} features`;
+    document.getElementById("atlasPrev").disabled = atlasState.page === 0;
+    document.getElementById("atlasNext").disabled = atlasState.page >= maxPage;
+  } catch (e) {
+    listEl.innerHTML = `<div class="queue-empty">Atlas query failed: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+window.validateAtlas = async function () {
+  try {
+    showToast("Running atlas integrity validator…", "success");
+    const res = await apiFetch(`${API_BASE}/features/validate`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(`Validation not permitted (requires admin): ${data.detail || res.status}`, "error");
+      return;
+    }
+    showToast(data.valid ? "Atlas VALID — 0 errors." : "Atlas INVALID — see response.",
+             data.valid ? "success" : "error");
+  } catch (e) {
+    showToast("Validator unavailable: " + e, "error");
   }
 };
 

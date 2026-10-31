@@ -29,6 +29,7 @@
       <button class="nav-btn" data-tab="volunteer" onclick="switchTab('volunteer')">🚚 Field Volunteer</button>
       <button class="nav-btn" data-tab="benchmarks" onclick="switchTab('benchmarks')">📊 Benchmark Arena</button>
       <button class="nav-btn" data-tab="ledger" onclick="switchTab('ledger')">📜 Evidence Ledger</button>
+      <button class="nav-btn" data-tab="atlas" onclick="switchTab('atlas')">📦 Feature Atlas</button>
     </nav>
 
     <!-- Header Actions & Simulation Controls -->
@@ -432,6 +433,51 @@
             </thead>
             <tbody id="auditLedgerTbody"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 7: Feature Atlas (live portfolio) -->
+    <div id="tab-atlas" class="tab-pane">
+      <div class="benchmark-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <div>
+            <h2 style="font-family:var(--font-heading); font-size:1.25rem; color:#fff;">📦 Live Feature Portfolio</h2>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+              Every capability is catalogued with an evidence-backed status. Verified features reference real tests; proposed features are honest specifications — never counted as shipped.
+            </p>
+          </div>
+          <button class="btn-secondary" onclick="validateAtlas()" aria-label="Run atlas integrity validator">✓ Validate Atlas</button>
+        </div>
+
+        <div id="atlasSummary" class="atlas-summary-grid" aria-label="Portfolio summary"></div>
+
+        <div class="atlas-filters" role="group" aria-label="Atlas filters" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin:0.9rem 0;">
+          <input id="atlasSearch" type="search" placeholder="Search features…" oninput="atlasSearchDebounced()"
+                 aria-label="Search features"
+                 style="background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.35rem 0.6rem; font-size:0.78rem; min-width:200px;">
+          <select id="atlasDomain" onchange="renderAtlasFeatures()" aria-label="Filter by domain"
+                  style="background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.35rem; font-size:0.78rem;"></select>
+          <select id="atlasStatus" onchange="renderAtlasFeatures()" aria-label="Filter by status"
+                  style="background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.35rem; font-size:0.78rem;">
+            <option value="">All statuses</option>
+            <option>EXISTING_VERIFIED</option><option>IMPLEMENTED_TESTED</option>
+            <option>PARTIALLY_IMPLEMENTED</option><option>BLOCKED_EXTERNAL_DEPENDENCY</option>
+            <option>PROPOSED</option><option>REJECTED</option>
+          </select>
+          <select id="atlasPriority" onchange="renderAtlasFeatures()" aria-label="Filter by priority"
+                  style="background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.35rem; font-size:0.78rem;">
+            <option value="">All priorities</option><option>P0</option><option>P1</option>
+            <option>P2</option><option>P3</option><option>P4</option>
+          </select>
+        </div>
+
+        <div id="atlasDomainsGrid" class="atlas-domains-grid" aria-label="Domain rollup"></div>
+        <div id="atlasFeatureList" class="atlas-feature-list" aria-label="Feature records"></div>
+        <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.8rem;">
+          <button class="btn-secondary" id="atlasPrev" onclick="atlasPage(-1)" aria-label="Previous page">← Prev</button>
+          <span id="atlasPageInfo" style="font-size:0.75rem; color:var(--text-secondary);"></span>
+          <button class="btn-secondary" id="atlasNext" onclick="atlasPage(1)" aria-label="Next page">Next →</button>
         </div>
       </div>
     </div>

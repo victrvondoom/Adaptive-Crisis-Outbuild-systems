@@ -1303,3 +1303,25 @@ textarea:focus-visible {
   .benchmark-cards-grid { grid-template-columns: 1fr; }
 }
 body { overflow-x: hidden; }
+
+/* Feature Atlas (live portfolio) */
+.atlas-summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.6rem; margin-top:0.9rem; }
+.atlas-stat { background:rgba(17,26,44,0.7); border:1px solid var(--border-strong); border-radius:10px; padding:0.7rem 0.9rem; }
+.atlas-stat .v { font-size:1.3rem; font-weight:700; color:var(--accent-cyan); }
+.atlas-stat .l { font-size:0.68rem; color:var(--text-secondary); margin-top:2px; }
+.atlas-domains-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:0.5rem; margin-top:0.9rem; }
+.atlas-domain-card { background:rgba(17,26,44,0.7); border:1px solid var(--border-strong); border-radius:10px; padding:0.6rem 0.8rem; cursor:pointer; }
+.atlas-domain-card:hover { border-color: var(--accent-cyan); }
+.atlas-domain-card.active { border-color: var(--accent-cyan); box-shadow:0 0 0 1px var(--accent-cyan); }
+.atlas-domain-card .dname { font-weight:700; font-size:0.78rem; color:#fff; }
+.atlas-domain-card .dnum { font-size:0.7rem; color:var(--text-secondary); }
+.atlas-feature-list { margin-top:0.9rem; display:flex; flex-direction:column; gap:0.4rem; }
+.atlas-feature { background:rgba(17,26,44,0.6); border:1px solid var(--border-strong); border-radius:10px; padding:0.55rem 0.8rem; }
+.atlas-feature .fid { font-family:var(--font-mono); font-size:0.68rem; color:var(--accent-cyan); }
+.atlas-feature .fname { font-weight:600; color:#fff; font-size:0.85rem; }
+.atlas-feature .fdesc { font-size:0.75rem; color:var(--text-secondary); margin-top:2px; }
+.status-chip.EXISTING_VERIFIED, .status-chip.IMPLEMENTED_TESTED { background:rgba(16,185,129,0.18); color:#34d399; }
+.status-chip.PARTIALLY_IMPLEMENTED { background:rgba(245,158,11,0.18); color:#f59e0b; }
+.status-chip.BLOCKED_EXTERNAL_DEPENDENCY { background:rgba(239,68,68,0.18); color:#f87171; }
+.status-chip.PROPOSED { background:rgba(148,163,184,0.15); color:#94a3b8; }
+@media (max-width: 640px) { .atlas-summary-grid { grid-template-columns:1fr 1fr; } .atlas-domains-grid { grid-template-columns:1fr; } }

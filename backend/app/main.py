@@ -800,6 +800,60 @@ def revoke_delegation(payload: DelegationPayload,
 
 
 # ----------------------------------------------------------------------
+# Dynamic Feature Atlas (Phase III): live portfolio queries
+# ----------------------------------------------------------------------
+from . import feature_atlas_api as atlas
+
+
+@app.get("/api/v1/features")
+def list_features(domain: Optional[str] = None, status: Optional[str] = None,
+                  priority: Optional[str] = None, search: Optional[str] = None,
+                  limit: int = 50, offset: int = 0,
+                  user: ident.VerifiedIdentity = Depends(get_identity),
+                  org_id: str = Depends(org_context)):
+    """Live feature-portfolio query: filter by domain/status/priority,
+    free-text search, pagination."""
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+    return atlas.query_features(domain=domain, status=status, priority=priority,
+                                search=search, limit=limit, offset=offset)
+
+
+@app.get("/api/v1/features/summary")
+def features_summary(user: ident.VerifiedIdentity = Depends(get_identity),
+                      org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    return atlas.summary()
+
+
+@app.get("/api/v1/features/domains")
+def features_domains(user: ident.VerifiedIdentity = Depends(get_identity),
+                     org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    return {"domains": atlas.domain_catalog()}
+
+
+@app.get("/api/v1/features/{feature_id}")
+def get_feature(feature_id: str,
+                user: ident.VerifiedIdentity = Depends(get_identity),
+                org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    record = atlas.get_feature(feature_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Feature not found")
+    return record
+
+
+@app.post("/api/v1/features/validate")
+def validate_atlas(user: ident.VerifiedIdentity = Depends(get_identity),
+                   org_id: str = Depends(org_context)):
+    """Runs the atlas integrity validator and returns structured results."""
+    guard(user, org_id, Permission.MANAGE_MEMBERS)
+    return atlas.validate()
+
+
+# ----------------------------------------------------------------------
 # Static frontend (demo UI)
 # ----------------------------------------------------------------------
 frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))

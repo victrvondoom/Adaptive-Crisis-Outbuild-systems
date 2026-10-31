@@ -178,6 +178,43 @@ class TestJourneys:
         page.wait_for_selector(".toast.error", timeout=8000)
         page.close()
 
+    def test_feature_atlas_journey(self, server, browser):
+        page = browser.new_page(viewport=VIEWPORTS["desktop"])
+        _login(page, server, "coordinator@example.dev")
+        page.click("button[data-tab='atlas']")
+        # summary cards render the live portfolio totals
+        page.wait_for_selector("#atlasSummary .atlas-stat", timeout=15000)
+        page.wait_for_function(
+            "document.getElementById('atlasSummary').textContent.includes('1080')")
+        # domain rollup: 36 clickable domain cards
+        page.wait_for_selector("#atlasDomainsGrid .atlas-domain-card",
+                               timeout=15000)
+        assert page.locator("#atlasDomainsGrid .atlas-domain-card").count() == 36
+        # feature list populated from the paginated API
+        page.wait_for_selector("#atlasFeatureList .atlas-feature",
+                               timeout=15000)
+        assert page.locator("#atlasFeatureList .atlas-feature").count() > 0
+        # filtering: click a domain card, list narrows and pagination info shows it
+        page.click("#atlasDomainsGrid .atlas-domain-card >> nth=0")
+        page.wait_for_timeout(600)
+        info = page.locator("#atlasPageInfo").inner_text()
+        assert "features" in info
+        # search narrows results live (clear the domain filter first)
+        page.select_option("#atlasDomain", "")
+        page.fill("#atlasSearch", "expiry")
+        page.wait_for_timeout(700)
+        assert page.locator("#atlasFeatureList .atlas-feature").count() > 0
+        assert "expiry" in page.locator(
+            "#atlasFeatureList .atlas-feature >> nth=0").inner_text().lower()
+        # evidence: screenshot of the live atlas tab
+        os.makedirs(SHOT_DIR, exist_ok=True)
+        page.screenshot(path=os.path.join(SHOT_DIR, "feature_atlas_desktop.png"),
+                       full_page=False)
+        # unauthenticated atlas API is closed even from a logged-in browser
+        assert page.evaluate(
+            "fetch('/api/v1/features').then(r => r.status)") == 401
+        page.close()
+
     def test_screenshots_three_viewports(self, server, browser):
         os.makedirs(SHOT_DIR, exist_ok=True)
         for name, vp in VIEWPORTS.items():
