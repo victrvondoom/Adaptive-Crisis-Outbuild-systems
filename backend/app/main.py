@@ -202,6 +202,14 @@ def org_context(request: Request, user: ident.VerifiedIdentity = Depends(get_ide
 
 
 def guard(user: ident.VerifiedIdentity, org_id: str, permission: Permission) -> None:
+    # Approval delegation (APR-006): an active, unrevoked, unexpired delegation
+    # grants the delegated permission within the org, audited as DELEGATED.
+    from . import persistence_phase3
+    if persistence_phase3.has_active_delegation(org_id, user.user_id, permission.value):
+        logging.getLogger("aidnexus.authz").info(json.dumps({
+            "event": "DELEGATED_PERMISSION_USED", "user_id": user.user_id,
+            "org_id": org_id, "permission": permission.value}))
+        return
     try:
         role_used = require_permission(user, org_id, permission)
     except AuthorizationError as e:
@@ -586,19 +594,32 @@ def list_my_orgs(user: ident.VerifiedIdentity = Depends(get_identity)):
 
 
 @app.get("/api/v1/audit")
-def audit_events(limit: int = 100,
+def audit_events(limit: int = 100, event_type: Optional[str] = None,
+                 actor: Optional[str] = None, contains: Optional[str] = None,
                  user: ident.VerifiedIdentity = Depends(get_identity),
                  org_id: str = Depends(org_context)):
+    """Audit search/filter (EVD-022): tenant-scoped filtering by event type,
+    actor or free-text summary match. Chain verification always returned."""
     guard(user, org_id, Permission.AUDIT_READ)
     with session_scope() as session:
-        rows = persistence.list_audit_events(session, org_id, limit=limit)
+        rows = persistence.list_audit_events(session, org_id, limit=1000)
         report = persistence.verify_audit_chain(session, org_id)
+    events = [
+        {"seq": r.seq, "event_type": r.event_type, "actor_id": r.actor_id,
+         "entity_type": r.entity_type, "entity_id": r.entity_id,
+         "summary": r.summary, "sha256": r.sha256, "prev_hash": r.prev_hash}
+        for r in rows]
+    if event_type:
+        events = [e for e in events if e["event_type"] == event_type]
+    if actor:
+        events = [e for e in events if actor.lower() in e["actor_id"].lower()]
+    if contains:
+        needle = contains.lower()
+        events = [e for e in events if needle in e["summary"].lower()]
     return {"org_id": org_id, "chain_valid": report["valid"],
-            "problems": report["problems"], "events": [
-                {"seq": r.seq, "event_type": r.event_type, "actor_id": r.actor_id,
-                 "entity_type": r.entity_type, "entity_id": r.entity_id,
-                 "summary": r.summary, "sha256": r.sha256,
-                 "prev_hash": r.prev_hash} for r in rows]}
+            "problems": report["problems"],
+            "filters": {"event_type": event_type, "actor": actor, "contains": contains},
+            "events": list(reversed(events))[:limit]}
 
 
 @app.get("/api/v1/orgs/export")
@@ -618,6 +639,164 @@ def export_org_data(user: ident.VerifiedIdentity = Depends(get_identity),
         "audit_chain_valid": report["valid"],
         "exported_at": time.time(),
     }
+
+
+# ----------------------------------------------------------------------
+# Phase III features
+# ----------------------------------------------------------------------
+class ExpiryPayload(BaseModel):
+    depot_id: str = Field(..., max_length=64)
+    item_type: str = Field(..., max_length=64)
+    expires_at: str = Field(..., max_length=40)  # ISO-8601
+
+
+class CertificationPayload(BaseModel):
+    volunteer_id: str = Field(..., max_length=32)
+    expires_at: str = Field(..., max_length=40)
+
+
+class CaseNotePayload(BaseModel):
+    note: str = Field(..., max_length=4000)
+
+
+class DelegationPayload(BaseModel):
+    delegate_email: str = Field(..., max_length=254)
+    permission: str = Field(..., max_length=64)
+    hours: float = Field(default=24.0, ge=0.5, le=720.0)
+
+
+def _parse_dt(value: str):
+    from datetime import datetime
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+@app.put("/api/v1/inventory/expiry")
+def set_inventory_expiry(payload: ExpiryPayload,
+                          user: ident.VerifiedIdentity = Depends(get_identity),
+                          org_id: str = Depends(org_context)):
+    """INV-006: record an expiry date for a stock line."""
+    guard(user, org_id, Permission.MANAGE_MEMBERS)  # NGO_ADMIN-scoped stock edit
+    from . import persistence_phase3
+    ok = persistence_phase3.set_inventory_expiry(
+        org_id, payload.depot_id, payload.item_type, _parse_dt(payload.expires_at))
+    if not ok:
+        raise HTTPException(status_code=404, detail="Stock line not found")
+    return {"success": True}
+
+
+@app.get("/api/v1/inventory/expiring")
+def expiring_report(within_days: int = 30,
+                    user: ident.VerifiedIdentity = Depends(get_identity),
+                    org_id: str = Depends(org_context)):
+    """INV-006: expiry-risk report (expiring + already expired, sorted)."""
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    from . import persistence_phase3
+    return {"org_id": org_id, "within_days": within_days,
+            "items": persistence_phase3.expiring_inventory(org_id, within_days)}
+
+
+@app.put("/api/v1/volunteers/certification")
+def set_certification(payload: CertificationPayload,
+                      user: ident.VerifiedIdentity = Depends(get_identity),
+                      org_id: str = Depends(org_context)):
+    """VOL-011: record a volunteer certification expiry date."""
+    guard(user, org_id, Permission.MANAGE_MEMBERS)
+    from . import persistence_phase3
+    ok = persistence_phase3.set_volunteer_certification(
+        org_id, payload.volunteer_id, _parse_dt(payload.expires_at))
+    if not ok:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+    return {"success": True}
+
+
+@app.get("/api/v1/volunteers/expired-certifications")
+def expired_certs(user: ident.VerifiedIdentity = Depends(get_identity),
+                   org_id: str = Depends(org_context)):
+    """VOL-011: volunteers whose certification has expired (assignment risk)."""
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    from . import persistence_phase3
+    return {"org_id": org_id,
+            "volunteers": persistence_phase3.volunteers_with_expired_certification(org_id)}
+
+
+@app.post("/api/v1/missions/{request_id}/notes")
+def add_case_note(request_id: str, payload: CaseNotePayload,
+                  user: ident.VerifiedIdentity = Depends(get_identity),
+                  org_id: str = Depends(org_context)):
+    """TRI-011: append a case note (audited, tenant-scoped)."""
+    guard(user, org_id, Permission.TRANSITION_MISSION)
+    from . import persistence_phase3
+    if request_id not in engine_for(org_id).requests:
+        raise HTTPException(status_code=404, detail="Request not found")
+    note = persistence_phase3.add_case_note(org_id, request_id, user.user_id, payload.note)
+    engine_for(org_id).log_audit(
+        event_type="CASE_NOTE_ADDED", actor_id=user.email, actor_type=ActorType.HUMAN,
+        entity_type="AidRequest", entity_id=request_id,
+        summary=f"Case note added ({len(payload.note)} chars).",
+        details={"note_id": note["id"]})
+    return {"success": True, "note": note}
+
+
+@app.get("/api/v1/missions/{request_id}/notes")
+def get_case_notes(request_id: str,
+                   user: ident.VerifiedIdentity = Depends(get_identity),
+                   org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    # fail closed: an unknown request in this org is 404, not an empty 200
+    if request_id not in engine_for(org_id).requests:
+        raise HTTPException(status_code=404, detail="Request not found")
+    from . import persistence_phase3
+    return {"notes": persistence_phase3.list_case_notes(org_id, request_id)}
+
+
+@app.post("/api/v1/delegations")
+def create_delegation(payload: DelegationPayload,
+                      user: ident.VerifiedIdentity = Depends(get_identity),
+                      org_id: str = Depends(org_context)):
+    """APR-006: delegate a permission to another member for a time box.
+    Only a member who HOLDS the permission may delegate it."""
+    from .authz import AuthorizationError
+    try:
+        require_permission(user, org_id, Permission.__members__.get(payload.permission)
+                           if payload.permission in Permission.__members__ else
+                           Permission(payload.permission))
+    except (AuthorizationError, ValueError):
+        raise HTTPException(status_code=403,
+                            detail="You may only delegate permissions you hold")
+    from sqlalchemy import select as _select
+    from .models_db import User
+    from datetime import datetime, timedelta, timezone
+    from . import persistence_phase3
+    with session_scope() as session:
+        delegate = session.execute(_select(User).where(
+            User.email == payload.delegate_email)).scalar_one_or_none()
+        if delegate is None:
+            raise HTTPException(status_code=404, detail="Delegate user not found")
+        record = persistence_phase3.create_delegation(
+            org_id, user.user_id, delegate.id, payload.permission,
+            datetime.now(timezone.utc) + timedelta(hours=payload.hours))
+    engine_for(org_id).log_audit(
+        event_type="DELEGATION_CREATED", actor_id=user.email, actor_type=ActorType.HUMAN,
+        entity_type="Delegation", entity_id=str(record["id"]),
+        summary=f"{payload.permission} delegated for {payload.hours}h.")
+    return {"success": True, "delegation": record}
+
+
+@app.post("/api/v1/delegations/revoke")
+def revoke_delegation(payload: DelegationPayload,
+                      user: ident.VerifiedIdentity = Depends(get_identity),
+                      org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.MANAGE_MEMBERS)
+    from . import persistence_phase3
+    from sqlalchemy import select as _select
+    from .models_db import User
+    with session_scope() as session:
+        delegate = session.execute(_select(User).where(
+            User.email == payload.delegate_email)).scalar_one_or_none()
+        if delegate is None:
+            raise HTTPException(status_code=404, detail="Delegate user not found")
+        n = persistence_phase3.revoke_delegations(org_id, delegate.id)
+    return {"success": True, "revoked": n}
 
 
 # ----------------------------------------------------------------------

@@ -26,7 +26,7 @@ Distance between the current verified platform and the catalogued portfolio.
 | CTX Context Engineering and Knowledge | 30 | 9 | 21 |
 | TOL Agent Tools, Action Contracts and Testing | 30 | 16 | 14 |
 | APR Human Approval and Governance | 30 | 9 | 21 |
-| EVD Evidence, Audit and Provenance | 30 | 17 | 13 |
+| EVD Evidence, Audit and Provenance | 30 | 16 | 14 |
 | COM Multilingual Communication and Notifications | 30 | 0 | 30 |
 | DOC Documents and Evidence Extraction | 30 | 0 | 30 |
 | FIN Financial Operations and Budgets | 30 | 0 | 30 |

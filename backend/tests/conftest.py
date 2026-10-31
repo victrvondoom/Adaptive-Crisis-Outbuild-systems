@@ -73,4 +73,7 @@ def client():
         def post(self, path, **kw):
             return self.tc.post(path, **kw)
 
+        def put(self, path, **kw):
+            return self.tc.put(path, **kw)
+
     return AuthClient(tc)

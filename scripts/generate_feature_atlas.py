@@ -41,6 +41,12 @@ os.makedirs(OUT_DIR, exist_ok=True)
 # Evidence-backed status assignment: exact/keyword name -> (status, tests, evidence)
 # ---------------------------------------------------------------------------
 VERIFIED_MAP = [
+    # Phase III implemented features (Wave 11 batch)
+    ("Expiry tracking", "IMPLEMENTED_TESTED", ["tests/test_phase3_features.py::TestInventoryExpiry"], "PUT /api/v1/inventory/expiry + GET /expiring; migration v2"),
+    ("Certification expiry tracking", "IMPLEMENTED_TESTED", ["tests/test_phase3_features.py::TestCertificationExpiry"], "PUT /api/v1/volunteers/certification + expired report"),
+    ("Approval delegation", "IMPLEMENTED_TESTED", ["tests/test_phase3_features.py::TestApprovalDelegation"], "delegations table; holder-only delegation; time-boxed; revocable; tenant-scoped"),
+    ("Audit search", "IMPLEMENTED_TESTED", ["tests/test_phase3_features.py::TestAuditSearch"], "/api/v1/audit event_type/actor/contains filters"),
+    ("Case notes", "IMPLEMENTED_TESTED", ["tests/test_phase3_features.py::TestCaseNotes"], "case_notes table; audited; tenant-scoped content isolation"),
     # ORG
     ("Multi-organization workspace", "EXISTING_VERIFIED", ["tests/test_authz_phase2.py"], "bootstrap.py: two isolated orgs; cross-tenant tests"),
     ("Organization data boundaries", "EXISTING_VERIFIED", ["tests/test_authz_phase2.py"], "org-scoped repositories; 403 suite"),

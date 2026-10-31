@@ -88,6 +88,7 @@ class InventoryItem(Base):
     org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     item_type: Mapped[str] = mapped_column(String(64), nullable=False)
     quantity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__ = (UniqueConstraint("depot_id", "item_type", name="uq_inventory_depot_item"),
                       Index("ix_inventory_org_type", "org_id", "item_type"),
                       # DB-enforced invariant: stock can never go negative,
@@ -151,6 +152,29 @@ class VolunteerRow(Base):
     role: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="AVAILABLE")
     assigned_vehicle_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    certification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CaseNoteRow(Base):
+    __tablename__ = "case_notes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    request_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    author_user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ApprovalDelegationRow(Base):
+    __tablename__ = "approval_delegations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    delegator_user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    delegate_user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    permission: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class PlanVersionRow(Base):

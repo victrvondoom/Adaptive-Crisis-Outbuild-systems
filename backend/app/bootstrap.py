@@ -106,8 +106,23 @@ def ensure_bootstrap() -> None:
                 for item_type, qty in spec["inv"].items():
                     persistence.seed_inventory(session, org_id=org_id, depot_id=depot_id,
                                                item_type=item_type, quantity=qty)
+        # Volunteers per org (mirrors the engine's scenario roster) so
+        # certification-expiry tracking has durable records.
+        from .models_db import VolunteerRow
+        roles = ["Paramedic Lead", "Heavy Logistics Driver", "Emergency Nurse", "Disaster Specialist"]
+        for org_id in (ORG_PACIFIC, ORG_HIGHLAND):
+            for i in range(1, 13):
+                vid = f"{org_id}:VOL-{i:02d}"  # org-qualified PK
+                exists = session.execute(select(VolunteerRow).where(
+                    VolunteerRow.org_id == org_id,
+                    VolunteerRow.id == vid)).scalar_one_or_none()
+                if exists is None:
+                    session.add(VolunteerRow(id=vid, org_id=org_id,
+                                              name=f"Volunteer Specialist {i:02d}",
+                                              role=roles[(i - 1) % len(roles)],
+                                              status="AVAILABLE"))
         session.flush()
-    logger.info("bootstrap ensured (orgs, demo identities, inventory)")
+    logger.info("bootstrap ensured (orgs, demo identities, inventory, volunteers)")
 
 
 def create_dev_session(user_id: str, ttl_hours: int = 8) -> str:

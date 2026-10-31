@@ -1,6 +1,6 @@
 # Feature Test Coverage
 
-EXISTING_VERIFIED features: 286 — each references real test files.
+EXISTING_VERIFIED features: 285 — each references real test files.
 
 Rule: a feature may only move to IMPLEMENTED_TESTED with runtime + test evidence; the validator enforces test references for verified statuses.
 
@@ -198,7 +198,6 @@ Rule: a feature may only move to IMPLEMENTED_TESTED with runtime + test evidence
 | EVD-018 Evidence completeness checks | EXISTING_VERIFIED | tests/test_metrics.py::test_audit_coverage_of_key_events |
 | EVD-019 Evidence verification tools | EXISTING_VERIFIED | tests/test_api.py::TestDisruptionApprovalFlow |
 | EVD-020 Tamper detection | EXISTING_VERIFIED | tests/test_persistence_phase2.py::test_tampered_payload_detected |
-| EVD-022 Audit search | EXISTING_VERIFIED | tests/test_api.py |
 | EVD-024 Correlation id propagation | EXISTING_VERIFIED | tests/test_api.py |
 | ANA-001 Canonical metric registry | EXISTING_VERIFIED | docs/metrics/METRIC_REGISTRY.md; tests/test_metrics.py |
 | ANA-002 Metric formula versioning | EXISTING_VERIFIED | docs/metrics/METRIC_REGISTRY.md |
