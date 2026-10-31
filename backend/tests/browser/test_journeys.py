@@ -215,6 +215,29 @@ class TestJourneys:
             "fetch('/api/v1/features').then(r => r.status)") == 401
         page.close()
 
+    def test_ngo_workflows_journey(self, server, browser):
+        """Phase IV: structured intake + impact report through the real UI."""
+        page = browser.new_page(viewport=VIEWPORTS["desktop"])
+        _login(page, server, "coordinator@example.dev")
+        page.click("button[data-tab='ops']")
+        # structured intake with consent
+        page.fill("#opsRequester", "Browser Journey Shelter")
+        page.click("text=Create Work Order")
+        page.wait_for_selector("#opsIntakeResult .atlas-feature", timeout=15000)
+        assert "Work order created" in page.locator(
+            "#opsIntakeResult .fname").inner_text()
+        # impact report renders live evidence-linked numbers
+        page.click("text=Generate Report")
+        page.wait_for_selector("#opsImpactReport .atlas-stat", timeout=15000)
+        page.wait_for_function(
+            "document.getElementById('opsImpactReport').textContent.includes('Provenance sha256:')")
+        # audit chain status is shown and valid
+        assert "✓" in page.locator("#opsImpactReport").inner_text()
+        # evidence: screenshot of the NGO workflows workspace
+        os.makedirs(SHOT_DIR, exist_ok=True)
+        page.screenshot(path=os.path.join(SHOT_DIR, "ngo_workflows_desktop.png"))
+        page.close()
+
     def test_screenshots_three_viewports(self, server, browser):
         os.makedirs(SHOT_DIR, exist_ok=True)
         for name, vp in VIEWPORTS.items():

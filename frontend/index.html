@@ -30,6 +30,7 @@
       <button class="nav-btn" data-tab="benchmarks" onclick="switchTab('benchmarks')">📊 Benchmark Arena</button>
       <button class="nav-btn" data-tab="ledger" onclick="switchTab('ledger')">📜 Evidence Ledger</button>
       <button class="nav-btn" data-tab="atlas" onclick="switchTab('atlas')">📦 Feature Atlas</button>
+      <button class="nav-btn" data-tab="ops" onclick="switchTab('ops')">🤝 NGO Workflows</button>
     </nav>
 
     <!-- Header Actions & Simulation Controls -->
@@ -479,6 +480,95 @@
           <span id="atlasPageInfo" style="font-size:0.75rem; color:var(--text-secondary);"></span>
           <button class="btn-secondary" id="atlasNext" onclick="atlasPage(1)" aria-label="Next page">Next →</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Tab 8: NGO Workflows (Phase IV: intake + transfers + procurement + impact) -->
+    <div id="tab-ops" class="tab-pane">
+      <div class="benchmark-panel">
+
+        <!-- Structured intake (Mission A front door) -->
+        <div class="panel-card" style="margin-bottom:1rem;">
+          <div class="panel-header"><span class="panel-title">📥 Structured Aid Request Intake</span>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">with beneficiary consent</span></div>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin:0.5rem 0;">
+            Creates a traceable work order with schema validation, consent capture and duplicate
+            detection. Requests enter the same authoritative engine and dispatch queue.
+          </p>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.5rem;">
+            <label style="font-size:0.75rem;">Requester
+              <input id="opsRequester" type="text" placeholder="Shelter name" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;"></label>
+            <label style="font-size:0.75rem;">Lat
+              <input id="opsLat" type="number" step="0.0001" value="14.6042" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;"></label>
+            <label style="font-size:0.75rem;">Lng
+              <input id="opsLng" type="number" step="0.0001" value="120.9846" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;"></label>
+            <label style="font-size:0.75rem;">Priority
+              <select id="opsPriority" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;">
+                <option>CRITICAL</option><option selected>HIGH</option><option>MEDIUM</option><option>LOW</option>
+              </select></label>
+            <label style="font-size:0.75rem;">Item
+              <select id="opsItemType" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;">
+                <option value="rations_mre">rations_mre</option><option value="potable_water_liters">potable_water_liters</option>
+                <option value="hygiene_kits">hygiene_kits</option><option value="trauma_kits">trauma_kits</option>
+                <option value="generators">generators</option>
+              </select></label>
+            <label style="font-size:0.75rem;">Quantity
+              <input id="opsQty" type="number" min="1" value="25" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;"></label>
+          </div>
+          <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.78rem; margin:0.6rem 0;">
+            <input id="opsConsent" type="checkbox" checked> Beneficiary consent recorded (required for intake)
+          </label>
+          <button class="btn-primary" style="width:100%; padding:0.6rem;" onclick="opsIntake()">Create Work Order</button>
+          <div id="opsIntakeResult" class="queue-empty" style="margin-top:0.5rem;">No intake submitted yet.</div>
+        </div>
+
+        <div class="intake-grid">
+          <!-- Cross-NGO transfers (Mission C) -->
+          <div class="panel-card">
+            <div class="panel-header"><span class="panel-title">🤝 Cross-NGO Transfers</span></div>
+            <p style="font-size:0.78rem; color:var(--text-secondary); margin:0.4rem 0;">
+              Share surplus with a partner organization. Sequential dual approval; inventory moves
+              through the audited ledger in both organizations.
+            </p>
+            <label style="font-size:0.75rem;">Destination org
+              <select id="xfrDestOrg" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;">
+                <option value="ORG-HIGHLAND">ORG-HIGHLAND</option>
+              </select></label>
+            <label style="font-size:0.75rem;">Item
+              <select id="xfrItem" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;">
+                <option value="rations_mre">rations_mre</option><option value="hygiene_kits">hygiene_kits</option>
+                <option value="trauma_kits">trauma_kits</option>
+              </select></label>
+            <label style="font-size:0.75rem;">Quantity
+              <input id="xfrQty" type="number" min="1" value="25" style="width:100%; background:#1e293b; color:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:0.4rem;"></label>
+            <button class="btn-secondary" style="width:100%; padding:0.5rem; margin-top:0.4rem;" onclick="opsProposeTransfer()">Propose Transfer</button>
+            <button class="btn-secondary" style="width:100%; padding:0.5rem; margin-top:0.4rem;" onclick="opsLoadTransfers()">Refresh Transfers</button>
+            <div id="opsTransfersList" class="queue-empty" style="margin-top:0.5rem;">No transfers loaded.</div>
+          </div>
+
+          <!-- Procurement (Mission D) -->
+          <div class="panel-card">
+            <div class="panel-header"><span class="panel-title">📦 Procurement</span></div>
+            <p style="font-size:0.78rem; color:var(--text-secondary); margin:0.4rem 0;">
+              Verified suppliers, budget-checked proposals, human approval and goods receipt with
+              discrepancy handling.
+            </p>
+            <button class="btn-secondary" style="width:100%; padding:0.5rem;" onclick="opsLoadProcurements()">Load Procurement History</button>
+            <div id="opsProcurementsList" class="queue-empty" style="margin-top:0.5rem;">No procurements loaded.</div>
+          </div>
+        </div>
+
+        <!-- Impact report (Mission E) -->
+        <div class="panel-card" style="margin-top:1rem;">
+          <div class="panel-header"><span class="panel-title">📊 Evidence-Linked Impact Report</span>
+            <button class="btn-secondary" onclick="opsLoadImpact()" style="font-size:0.72rem;">Generate Report</button></div>
+          <p style="font-size:0.78rem; color:var(--text-secondary); margin:0.4rem 0;">
+            Recomputed from authoritative rows: delivery receipts, inventory movements and the verified
+            audit chain — with explicit formulas and a provenance hash.
+          </p>
+          <div id="opsImpactReport" class="queue-empty">No report generated yet.</div>
+        </div>
+
       </div>
     </div>
 

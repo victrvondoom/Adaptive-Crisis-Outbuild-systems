@@ -1064,6 +1064,110 @@ window.validateAtlas = async function () {
 };
 
 // ------------------------------------------------------------------
+// Phase IV NGO workflows: structured intake, transfers, procurement, impact
+// ------------------------------------------------------------------
+window.opsIntake = async function () {
+  const consent = document.getElementById("opsConsent").checked;
+  const payload = {
+    requester_name: document.getElementById("opsRequester").value.trim() || "Field Shelter",
+    lat: parseFloat(document.getElementById("opsLat").value),
+    lng: parseFloat(document.getElementById("opsLng").value),
+    sector: "Central Metro",
+    items: [{ item_type: document.getElementById("opsItemType").value,
+              quantity: parseFloat(document.getElementById("opsQty").value), unit: "units" }],
+    priority: document.getElementById("opsPriority").value,
+    consent: { granted: consent, scope: "ASSISTANCE" },
+  };
+  try {
+    const res = await apiFetch(`${API_BASE}/requests`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload) });
+    const data = await res.json();
+    const el = document.getElementById("opsIntakeResult");
+    if (!res.ok) {
+      el.innerHTML = `<span style="color:#f87171;">Intake rejected: ${escapeHtml(data.detail || res.status)}</span>`;
+      return;
+    }
+    const r = data.request;
+    el.innerHTML = `
+      <div class="atlas-feature">
+        <span class="fid">${escapeHtml(r.id)} · ${escapeHtml(r.priority)} priority</span>
+        <div class="fname">Work order created for ${escapeHtml(r.requester_name)}</div>
+        <div class="fdesc">Consent: ${escapeHtml(data.consent.consent_id)} ·
+          ${data.duplicate_of_id ? "DUPLICATE — routed to human review" : escapeHtml(data.next_step)}</div>
+      </div>`;
+    showToast(`Work order ${r.id} created`, "success");
+  } catch (e) { showToast("Intake failed: " + e, "error"); }
+};
+
+window.opsProposeTransfer = async function () {
+  const payload = {
+    dest_org_id: document.getElementById("xfrDestOrg").value,
+    source_depot_id: "DEPOT-ALPHA", dest_depot_id: "DEPOT-ALPHA",
+    item_type: document.getElementById("xfrItem").value,
+    quantity: parseFloat(document.getElementById("xfrQty").value),
+    reason: "UI proposal: shared surplus",
+  };
+  try {
+    const res = await apiFetch(`${API_BASE}/transfers`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) { showToast(`Transfer rejected: ${data.detail || res.status}`, "error"); return; }
+    showToast(`Transfer ${data.transfer_id} proposed — needs both approvals`, "success");
+    opsLoadTransfers();
+  } catch (e) { showToast("Transfer failed: " + e, "error"); }
+};
+
+window.opsLoadTransfers = async function () {
+  try {
+    const res = await apiFetch(`${API_BASE}/transfers`);
+    const data = await res.json();
+    document.getElementById("opsTransfersList").innerHTML =
+      (data.transfers || []).slice(0, 8).map(t => `
+        <div class="atlas-feature">
+          <span class="fid">${escapeHtml(t.transfer_id)}</span>
+          <span class="status-chip ${escapeHtml(t.status === "RECEIVED" ? "delivered" : t.status)}">${escapeHtml(t.status)}</span>
+          <div class="fdesc">${t.quantity} ${escapeHtml(t.item_type)} ·
+            ${escapeHtml(t.source_org_id)} → ${escapeHtml(t.dest_org_id)}</div>
+        </div>`).join("") || `<div class="queue-empty">No transfers yet.</div>`;
+  } catch (e) { showToast("Transfer list failed: " + e, "error"); }
+};
+
+window.opsLoadProcurements = async function () {
+  try {
+    const res = await apiFetch(`${API_BASE}/procurements`);
+    const data = await res.json();
+    document.getElementById("opsProcurementsList").innerHTML =
+      (data.procurements || []).slice(0, 8).map(p => `
+        <div class="atlas-feature">
+          <span class="fid">${escapeHtml(p.procurement_id)}</span>
+          <span class="status-chip ${escapeHtml(p.status)}">${escapeHtml(p.status)}</span>
+          <div class="fdesc">${p.quantity} ${escapeHtml(p.item_type)} @
+            ${p.unit_cost_cents / 100} cost units · into ${escapeHtml(p.depot_id)}</div>
+        </div>`).join("") || `<div class="queue-empty">No procurements yet.</div>`;
+  } catch (e) { showToast("Procurement list failed: " + e, "error"); }
+};
+
+window.opsLoadImpact = async function () {
+  try {
+    const res = await apiFetch(`${API_BASE}/impact/report`);
+    const d = await res.json();
+    if (!res.ok) { showToast(`Impact report failed: ${d.detail || res.status}`, "error"); return; }
+    document.getElementById("opsImpactReport").innerHTML = `
+      <div class="atlas-summary-grid" style="margin:0.5rem 0;">
+        <div class="atlas-stat"><div class="v">${d.requests_total}</div><div class="l">requests</div></div>
+        <div class="atlas-stat"><div class="v">${d.delivery_receipts}</div><div class="l">verified receipts</div></div>
+        <div class="atlas-stat"><div class="v">${d.fulfillment_rate === null ? "—" : (d.fulfillment_rate * 100).toFixed(1) + "%"}</div><div class="l">fulfillment (${escapeHtml(d.fulfillment_formula)})</div></div>
+        <div class="atlas-stat"><div class="v">${d.critical_delivered}/${d.critical_total}</div><div class="l">critical delivered</div></div>
+        <div class="atlas-stat"><div class="v">${d.audit_chain_valid ? "✓" : "✗"}</div><div class="l">audit chain</div></div>
+      </div>
+      <div class="fdesc">Provenance sha256: ${escapeHtml(d.provenance_sha256.slice(0, 24))}… ·
+        ${escapeHtml(d.actual_vs_estimated)}</div>`;
+  } catch (e) { showToast("Impact report failed: " + e, "error"); }
+};
+
+// ------------------------------------------------------------------
 // Render everything
 // ------------------------------------------------------------------
 function renderAll() {
