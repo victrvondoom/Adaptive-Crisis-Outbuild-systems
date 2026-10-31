@@ -1174,3 +1174,98 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 229, 255, 0.4);
 }
+
+/* ===== Trust & honesty components (added in trust-repair pass) ===== */
+
+/* Connection badge states */
+.live-badge.offline {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+.live-badge.connected {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+/* Offline notice */
+.offline-notice {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  margin: 0 1.5rem;
+  font-size: 0.82rem;
+}
+.offline-notice code {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* Toast notifications (non-blocking, aria-live) */
+.toast-host {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 1000;
+  max-width: 380px;
+}
+.toast {
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  background: #1e293b;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: toast-in 0.25s ease;
+}
+.toast.success { border-color: rgba(16, 185, 129, 0.6); }
+.toast.error { border-color: rgba(239, 68, 68, 0.6); }
+@keyframes toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Queue states */
+.queue-empty {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 1rem 0.5rem;
+}
+.queue-more {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-align: center;
+  padding: 0.4rem;
+}
+.mission-item-card.blocked {
+  opacity: 0.85;
+  border-left: 3px solid #f59e0b;
+}
+
+/* Benchmark honesty styles */
+.bench-violation {
+  color: #ef4444 !important;
+  font-weight: 700;
+}
+.bench-note {
+  margin-top: 0.5rem;
+}
+
+/* Keyboard accessibility: visible focus rings */
+button:focus-visible,
+.map-pill:focus-visible,
+.preset-pill:focus-visible,
+.nav-btn:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #00e5ff;
+  outline-offset: 2px;
+}

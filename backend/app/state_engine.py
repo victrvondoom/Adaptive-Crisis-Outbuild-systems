@@ -454,7 +454,9 @@ class CrisisStateEngine:
         stock once, writes an audit event, and stores a receipt. Repeat calls
         return the existing receipt without side effects (idempotency)."""
         if req.id in self.delivery_receipts:
-            return self.delivery_receipts[req.id]
+            # Idempotent repeat: return a copy flagged as duplicate so the
+            # caller knows no new side effects occurred.
+            return {**self.delivery_receipts[req.id], "duplicate": True}
 
         was_delivered = req.status == MissionStatus.DELIVERED
         if not was_delivered:
