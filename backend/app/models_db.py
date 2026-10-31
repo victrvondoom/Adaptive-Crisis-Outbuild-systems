@@ -36,6 +36,8 @@ class Organization(Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Phase IV (v3): org-level procurement budget in cents (None = unrestricted).
+    budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class User(Base):
@@ -297,4 +299,84 @@ class OutboxEventRow(Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+# ----------------------------------------------------------------------
+# Phase IV (v3): beneficiary consent, cross-NGO transfers, procurement.
+# ----------------------------------------------------------------------
+
+class BeneficiaryConsentRow(Base):
+    """Beneficiary consent record, bound to a request. Revocable at any time.
+    Enforcement rule (main.py): a REVOKED consent blocks delivery confirmation;
+    API intake REQUIRES granted consent. Legacy seeded requests carry no row and
+    are documented as such (no consent claim is made for them)."""
+    __tablename__ = "beneficiary_consents"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    request_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    consent_scope: Mapped[str] = mapped_column(String(64), default="ASSISTANCE")
+    granted_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (Index("ix_consents_org_req", "org_id", "request_id"),)
+
+
+class SupplierRow(Base):
+    __tablename__ = "suppliers"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ProcurementRow(Base):
+    """Procurement-to-inventory lifecycle (Mission D).
+    Status machine: PROPOSED -> APPROVED -> ORDERED -> RECEIVED, with
+    REJECTED and DISCREPANCY (received != ordered) terminal/flag states."""
+    __tablename__ = "procurements"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    supplier_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    depot_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    unit_cost_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_cost_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="PROPOSED", index=True)
+    proposed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    received_quantity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    discrepancy_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ResourceTransferRow(Base):
+    """Cross-NGO resource transfer (Mission C). Dual-approval state machine:
+    PROPOSED -> SOURCE_APPROVED -> DEST_APPROVED -> DISPATCHED -> RECEIVED,
+    with CANCELLED (pre-dispatch) and FAILED (dispatch-time shortage).
+    Facts (item, quantity, status) are shared between the two orgs; each org's
+    audit trail records only its own actions."""
+    __tablename__ = "resource_transfers"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    source_org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    dest_org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_depot_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    dest_depot_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="PROPOSED", index=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    proposed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    source_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dest_approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    dest_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

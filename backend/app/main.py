@@ -534,6 +534,13 @@ def confirm_delivery(payload: DeliveryPayload,
                      user: ident.VerifiedIdentity = Depends(get_identity),
                      org_id: str = Depends(org_context)):
     guard(user, org_id, Permission.CONFIRM_DELIVERY)
+    # Consent safeguard: a beneficiary who withdrew consent cannot be delivered
+    # to until a human resolves the case (BEN-007 enforcement point).
+    if persistence_phase4.consent_revoked(org_id, payload.request_id):
+        raise HTTPException(
+            status_code=409,
+            detail="Delivery blocked: beneficiary consent was revoked for "
+                   "this request. Human review required.")
     eng = engine_for(org_id)
     try:
         res = eng.confirm_delivery(request_id=payload.request_id,
@@ -851,6 +858,412 @@ def validate_atlas(user: ident.VerifiedIdentity = Depends(get_identity),
     """Runs the atlas integrity validator and returns structured results."""
     guard(user, org_id, Permission.MANAGE_MEMBERS)
     return atlas.validate()
+
+
+# ----------------------------------------------------------------------
+# Phase IV: canonical cross-domain workflows
+# (intake+consent, impact reports, cross-NGO transfers, procurement,
+#  outbox dispatch)
+# ----------------------------------------------------------------------
+from . import persistence_phase4
+
+
+CANONICAL_ITEM_TYPES = {"potable_water_liters", "trauma_kits", "rations_mre",
+                         "hygiene_kits", "generators"}
+
+
+def _sanitize_field(value: str) -> str:
+    """Defense-in-depth for structured intake fields: strip HTML tags and
+    control characters so hostile markup is never persisted verbatim (the
+    frontend still escapes at render; this makes stored data safe even for
+    naive report/export consumers)."""
+    import re as _re
+    v = _re.sub(r"<[^>]*>", "", value)
+    v = _re.sub(r"[\x00-\x1f\x7f]", "", v)
+    return v.strip()
+
+
+class IntakeConsentPayload(BaseModel):
+    granted: bool = True
+    scope: str = Field(default="ASSISTANCE", max_length=64)
+    evidence: Optional[str] = Field(default=None, max_length=500)
+
+
+class IntakeItemPayload(BaseModel):
+    item_type: str = Field(..., max_length=64)
+    quantity: float = Field(..., gt=0)
+    unit: str = Field(default="unit", max_length=32)
+
+
+class IntakePayload(BaseModel):
+    requester_name: str = Field(..., min_length=2, max_length=200)
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    sector: str = Field(default="Central", max_length=100)
+    items: list[IntakeItemPayload] = Field(..., min_length=1)
+    priority: Optional[str] = None  # CRITICAL/HIGH/MEDIUM/LOW
+    raw_text: Optional[str] = Field(default=None, max_length=4000)
+    deadline_hours: float = Field(default=24.0, ge=0.5, le=720.0)
+    affected_people: int = Field(default=10, ge=1, le=100000)
+    consent: IntakeConsentPayload = Field(default_factory=IntakeConsentPayload)
+
+
+class TransferPayload(BaseModel):
+    dest_org_id: str = Field(..., max_length=32)
+    source_depot_id: str = Field(..., max_length=32)
+    dest_depot_id: str = Field(..., max_length=32)
+    item_type: str = Field(..., max_length=64)
+    quantity: float = Field(..., gt=0)
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+class SupplierPayload(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200)
+    verified: bool = False
+
+
+class ProcurementPayload(BaseModel):
+    supplier_id: str = Field(..., max_length=32)
+    depot_id: str = Field(..., max_length=32)
+    item_type: str = Field(..., max_length=64)
+    quantity: float = Field(..., gt=0)
+    unit_cost_cents: int = Field(..., ge=0)
+
+
+class ProcurementReceivePayload(BaseModel):
+    received_quantity: float = Field(..., ge=0)
+    discrepancy_note: Optional[str] = Field(default=None, max_length=500)
+
+
+class BudgetPayload(BaseModel):
+    budget_cents: Optional[int] = Field(default=None, ge=0)
+
+
+@app.post("/api/v1/requests")
+def intake_aid_request(payload: IntakePayload,
+                       user: ident.VerifiedIdentity = Depends(get_identity),
+                       org_id: str = Depends(org_context)):
+    """Mission A front door: structured intake with schema validation, consent
+    capture, duplicate detection, canonical priority policy and a traceable
+    work order. The request enters the same authoritative engine + DB as every
+    other request (single source of truth)."""
+    guard(user, org_id, Permission.CREATE_REQUEST)
+    eng = engine_for(org_id)
+    from .models import AidRequest, AidItem, Location, PriorityLevel, MissionStatus
+
+    # 1. Schema-level validation (Pydantic) + canonical item taxonomy.
+    for it in payload.items:
+        if it.item_type not in CANONICAL_ITEM_TYPES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown item_type '{it.item_type}'. "
+                       f"Canonical: {sorted(CANONICAL_ITEM_TYPES)}")
+    # 2. Consent gate: no intake without recorded beneficiary consent.
+    if not payload.consent.granted:
+        raise HTTPException(status_code=400,
+                            detail="Beneficiary consent is required for intake")
+
+    # 3. Priority: agent-assisted classification from raw text when present,
+    #    else the explicitly provided policy priority.
+    evidence: Dict[str, Any] = {"intake_channel": "API_INTAKE"}
+    if payload.raw_text:
+        from .agents import sanitize_text
+        clean_text, injection_detected = sanitize_text(payload.raw_text)
+        priority, priority_reason = eng.agent1.classify_urgency(clean_text.lower())
+        evidence["priority_reason"] = priority_reason
+        evidence["injection_detected"] = injection_detected
+        evidence["raw_text_sanitized"] = True
+    else:
+        try:
+            priority = PriorityLevel(payload.priority) if payload.priority \
+                else PriorityLevel.MEDIUM
+        except ValueError:
+            raise HTTPException(status_code=422,
+                                detail=f"Invalid priority '{payload.priority}'")
+        evidence["priority_reason"] = "explicit policy priority from intake"
+
+    req = AidRequest(
+        requester_name=_sanitize_field(payload.requester_name),
+        location=Location(
+            id=f"LOC-{uuid.uuid4().hex[:6]}",
+            name=f"{_sanitize_field(payload.sector)} Relief Point",
+            lat=payload.lat, lng=payload.lng,
+            sector=_sanitize_field(payload.sector)),
+        items=[AidItem(item_type=i.item_type, quantity=i.quantity, unit=i.unit)
+               for i in payload.items],
+        priority=priority,
+        status=MissionStatus.REQUESTED,
+        deadline_hours=payload.deadline_hours,
+        affected_people=payload.affected_people,
+        intake_channel="API_INTAKE")
+
+    # 4. Duplicate detection (canonical agent rule — human decides, never auto-deny).
+    duplicate_of = eng.agent1.check_duplicate(
+        req, list(eng.requests.values()), now=req.created_at)
+    if duplicate_of:
+        req.duplicate_of_id = duplicate_of
+        req.status = MissionStatus.UNDER_REVIEW
+        evidence["duplicate_of_id"] = duplicate_of
+
+    # 5. Single source of truth: engine + write-through persistence.
+    eng.requests[req.id] = req
+    eng.persist_request_write_through(req)
+    consent = persistence_phase4.record_consent(
+        org_id, req.id, granted_by=f"beneficiary:{req.requester_name}",
+        consent_scope=payload.consent.scope,
+        evidence=_sanitize_field(payload.consent.evidence) if payload.consent.evidence else None)
+    # 6. Transactional outbox event (consumed by /outbox/dispatch).
+    with session_scope() as session:
+        persistence.enqueue_outbox(
+            session, org_id, event_type="AidRequestCreated",
+            payload={"request_id": req.id, "priority": priority.value},
+            idempotency_key=f"request:{org_id}:{req.id}:created")
+    eng.log_audit(
+        event_type="REQUEST_INTAKED", actor_id=user.user_id,
+        actor_type=ActorType.HUMAN, entity_type="AidRequest", entity_id=req.id,
+        summary=(f"API intake: {len(req.items)} item(s) for "
+                 f"{req.affected_people} people, {priority.value} priority"),
+        details={"consent_id": consent["consent_id"], "evidence": evidence})
+    return {"request": req.model_dump(), "consent": consent,
+            "duplicate_of_id": duplicate_of, "evidence": evidence,
+            "next_step": ("human review (duplicate or medical content)"
+                          if duplicate_of else
+                          "run optimization to produce a feasible plan")}
+
+
+@app.get("/api/v1/requests/{request_id}")
+def request_trace(request_id: str,
+                  user: ident.VerifiedIdentity = Depends(get_identity),
+                  org_id: str = Depends(org_context)):
+    """Mission A step 15: evidence-linked work-order trace — request, consent,
+    receipt, inventory movements and audit history in one tenant-scoped view."""
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    with session_scope() as session:
+        row = persistence.get_request(session, org_id, request_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Request not found")
+    report = persistence_phase4.impact_report(org_id, request_id)
+    return report
+
+
+@app.post("/api/v1/requests/{request_id}/consent/revoke")
+def revoke_request_consent(request_id: str,
+                           user: ident.VerifiedIdentity = Depends(get_identity),
+                           org_id: str = Depends(org_context)):
+    """Beneficiary consent withdrawal (BEN-007). A revoked consent blocks
+    delivery confirmation until a human resolves the case."""
+    guard(user, org_id, Permission.CREATE_REQUEST)
+    ok = persistence_phase4.revoke_consent(
+        org_id, request_id, actor=f"identity:{user.user_id}")
+    if not ok:
+        raise HTTPException(status_code=404,
+                            detail="No active consent record for this request")
+    return {"success": True, "request_id": request_id, "consent_status": "REVOKED"}
+
+
+@app.get("/api/v1/impact/report")
+def impact_report_endpoint(request_id: Optional[str] = None,
+                           user: ident.VerifiedIdentity = Depends(get_identity),
+                           org_id: str = Depends(org_context)):
+    """Mission E: evidence-linked impact report (org-level or per-request),
+    recomputed from authoritative rows with provenance hash."""
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    try:
+        return persistence_phase4.impact_report(org_id, request_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ---- Cross-NGO resource transfers (Mission C) ----
+
+@app.post("/api/v1/transfers")
+def propose_transfer(payload: TransferPayload,
+                     user: ident.VerifiedIdentity = Depends(get_identity),
+                     org_id: str = Depends(org_context)):
+    """Propose sharing resources with a peer organization. The caller's org is
+    the SOURCE; both organizations must approve before dispatch."""
+    guard(user, org_id, Permission.RUN_OPTIMIZATION)
+    try:
+        return persistence_phase4.create_transfer(
+            source_org_id=org_id, dest_org_id=payload.dest_org_id,
+            source_depot_id=payload.source_depot_id,
+            dest_depot_id=payload.dest_depot_id,
+            item_type=payload.item_type, quantity=payload.quantity,
+            proposed_by=f"identity:{user.user_id}", reason=payload.reason)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/v1/transfers")
+def list_transfers(user: ident.VerifiedIdentity = Depends(get_identity),
+                   org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    return {"org_id": org_id,
+            "transfers": persistence_phase4.list_transfers(org_id)}
+
+
+def _transfer_action(transfer_id: str, org_id: str, user, fn, **kwargs):
+    try:
+        return fn(transfer_id=transfer_id, acting_org_id=org_id,
+                  actor=f"identity:{user.user_id}", **kwargs)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.post("/api/v1/transfers/{transfer_id}/approve-source")
+def transfer_approve_source(transfer_id: str,
+                            user: ident.VerifiedIdentity = Depends(get_identity),
+                            org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.APPROVE_PLAN)
+    return _transfer_action(transfer_id, org_id, user,
+                            persistence_phase4.approve_transfer, which="source")
+
+
+@app.post("/api/v1/transfers/{transfer_id}/approve-destination")
+def transfer_approve_destination(transfer_id: str,
+                                 user: ident.VerifiedIdentity = Depends(get_identity),
+                                 org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.APPROVE_PLAN)
+    return _transfer_action(transfer_id, org_id, user,
+                            persistence_phase4.approve_transfer, which="dest")
+
+
+@app.post("/api/v1/transfers/{transfer_id}/dispatch")
+def transfer_dispatch(transfer_id: str,
+                      user: ident.VerifiedIdentity = Depends(get_identity),
+                      org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.APPROVE_PLAN)
+    return _transfer_action(transfer_id, org_id, user,
+                            persistence_phase4.dispatch_transfer)
+
+
+@app.post("/api/v1/transfers/{transfer_id}/receive")
+def transfer_receive(transfer_id: str,
+                     user: ident.VerifiedIdentity = Depends(get_identity),
+                     org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.CONFIRM_DELIVERY)
+    return _transfer_action(transfer_id, org_id, user,
+                            persistence_phase4.receive_transfer)
+
+
+@app.post("/api/v1/transfers/{transfer_id}/cancel")
+def transfer_cancel(transfer_id: str, reason: str = "Withdrawn by organization",
+                    user: ident.VerifiedIdentity = Depends(get_identity),
+                    org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.APPROVE_PLAN)
+    return _transfer_action(transfer_id, org_id, user,
+                            persistence_phase4.cancel_transfer, reason=reason)
+
+
+# ---- Procurement (Mission D) ----
+
+@app.post("/api/v1/suppliers")
+def register_supplier(payload: SupplierPayload,
+                      user: ident.VerifiedIdentity = Depends(get_identity),
+                      org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.MANAGE_MEMBERS)
+    return persistence_phase4.register_supplier(org_id, payload.name,
+                                                 payload.verified)
+
+
+@app.get("/api/v1/suppliers")
+def list_suppliers(user: ident.VerifiedIdentity = Depends(get_identity),
+                   org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    return {"org_id": org_id, "suppliers": persistence_phase4.list_suppliers(org_id)}
+
+
+@app.put("/api/v1/suppliers/{supplier_id}/verify")
+def verify_supplier(supplier_id: str,
+                    user: ident.VerifiedIdentity = Depends(get_identity),
+                    org_id: str = Depends(org_context)):
+    """Supplier verification (PRO-003): only verified suppliers may be procured
+    from (enforced at procurement approval)."""
+    guard(user, org_id, Permission.MANAGE_MEMBERS)
+    try:
+        return persistence_phase4.verify_supplier(org_id, supplier_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.put("/api/v1/orgs/budget")
+def set_budget(payload: BudgetPayload,
+               user: ident.VerifiedIdentity = Depends(get_identity),
+               org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.MANAGE_MEMBERS)
+    return persistence_phase4.set_org_budget(org_id, payload.budget_cents)
+
+
+@app.post("/api/v1/procurements")
+def propose_procurement(payload: ProcurementPayload,
+                        user: ident.VerifiedIdentity = Depends(get_identity),
+                        org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.CREATE_REQUEST)
+    try:
+        return persistence_phase4.create_procurement(
+            org_id, payload.supplier_id, payload.depot_id, payload.item_type,
+            payload.quantity, payload.unit_cost_cents,
+            proposed_by=f"identity:{user.user_id}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/v1/procurements/{procurement_id}/approve")
+def approve_procurement(procurement_id: str,
+                        user: ident.VerifiedIdentity = Depends(get_identity),
+                        org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.APPROVE_PLAN)
+    try:
+        return persistence_phase4.approve_procurement(
+            org_id, procurement_id, actor=f"identity:{user.user_id}")
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/v1/procurements/{procurement_id}/receive")
+def receive_procurement(procurement_id: str,
+                        payload: ProcurementReceivePayload,
+                        user: ident.VerifiedIdentity = Depends(get_identity),
+                        org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.CONFIRM_DELIVERY)
+    try:
+        return persistence_phase4.receive_procurement(
+            org_id, procurement_id, payload.received_quantity,
+            actor=f"identity:{user.user_id}",
+            discrepancy_note=payload.discrepancy_note)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/v1/procurements")
+def list_procurements(user: ident.VerifiedIdentity = Depends(get_identity),
+                      org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    return {"org_id": org_id,
+            "procurements": persistence_phase4.list_procurements(org_id)}
+
+
+# ---- Outbox dispatch (Wave 9) ----
+
+@app.post("/api/v1/outbox/dispatch")
+def dispatch_outbox(limit: int = 20,
+                    user: ident.VerifiedIdentity = Depends(get_identity),
+                    org_id: str = Depends(org_context)):
+    """Idempotent outbox consumer: processes pending operational events.
+    Honest: no external provider exists here, so processing marks delivery
+    state for observability; no external side effect is claimed."""
+    guard(user, org_id, Permission.SIM_CONTROL)
+    return persistence_phase4.dispatch_outbox(limit=limit)
 
 
 # ----------------------------------------------------------------------
