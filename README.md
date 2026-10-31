@@ -1,107 +1,66 @@
 # AIDNEXUS ONE — Adaptive Crisis Outbuild Systems
 
-> **The Self-Healing Humanitarian Network.** Evidence-driven, agentic mission control for humanitarian relief dispatches. OutSystems Build for the Future Hackathon 2026 entry.
+> **The Self-Healing Humanitarian Network.** Evidence-driven, agentic
+> mission-control for humanitarian relief — from raw distress message to
+> verified, audited assistance that survives disasters mid-operation.
+> OutSystems "Build for the Future" Hackathon 2026 entry.
 
-## What this actually is (implementation status, honestly stated)
+**Verified state at submission: 256 backend tests + 11 real-browser journeys, all green** (proven from a clean clone of this repository).
 
-A **local, self-contained demo application**: a FastAPI backend (Python) that
-plans, simulates and audits humanitarian dispatch missions, serving a vanilla
-JS mission-control dashboard. It runs a deterministic crisis scenario
-(seed=42: 200 aid requests, 3 depots, 10 vehicles, 12 volunteers) in memory.
+![Mission Control](docs/phase-2/screenshots/dashboard_desktop.png)
 
-| Capability | Status |
-|---|---|
-| Optimization-based dispatch planning (priority insertion + priority-preserving 2-opt) | ✅ Implemented (heuristic — not MIP/OR-Tools) |
-| Humanitarian priority policy with versioned plan data contract | ✅ Implemented |
-| Plan-derived dispatch queue (optimizer output is the only execution order) | ✅ Implemented, concordance-tested |
-| Disruption recovery (depot outage, hazard zones, vehicle breakdown) with human approval gate | ✅ Implemented |
-| 3 agents with tested action contracts (triage / planning / recovery) | ✅ Implemented (deterministic; no LLM) |
-| Idempotent proof-of-delivery, state-machine-validated transitions, hash-chained audit | ✅ Implemented |
-| Real 4-strategy benchmark simulation with integrity metrics | ✅ Implemented |
-| 81-test automated suite | ✅ Implemented |
-| LLM integration (Bedrock/Azure), OutSystems ODC app, Twilio SMS, auth/multi-tenancy, DB persistence | ❌ Not implemented (spec-only; see `docs/context/CURRENT_STATE.md`) |
+## The 60-second pitch
 
-## Phase II — production readiness (verified)
+Two NGOs, three warehouses, 200 aid requests, 10 vehicles, 12 volunteers, limited inventory. A coordinator turns unstructured distress messages into optimizer-planned, **human-approved** dispatch missions. Then a warehouse floods — and the platform **replans around it without losing completed deliveries**, asks a human to approve the new plan, and keeps an unforgeable audit trail of every decision. Five end-to-end mission capabilities are implemented and test-proven:
 
-| Capability | Status |
-|---|---|
-| Durable multi-tenant persistence (SQLAlchemy; SQLite local / PostgreSQL via `DATABASE_URL`), versioned migrations, transactional inventory, idempotent receipts, persisted tamper-evident audit | ✅ Implemented + tested (restart/concurrency/tamper) |
-| Authentication (OIDC adapter; dev adapter impossible in production), 6 roles, membership-derived tenant scoping, revocable sessions | ✅ Implemented + tested (10/10 isolation cases); live IdP BLOCKED (no credentials) |
-| Agent runtime: provider abstraction (Mistral/OpenAI-compatible), context envelopes with stale detection, postcondition-verified actions | ✅ Implemented + tested; real model BLOCKED without keys — deterministic path honestly labeled |
-| Optimizer proofs: brute-force oracle gap measurement, metamorphic tests, independent feasibility verifier | ✅ Implemented (caught and fixed a real preservation defect) |
-| Browser-verified UI: login, triage, disruption approval, volunteer signature delivery, cross-tenant denial; 3-viewport screenshots; axe-core scan | ✅ 8/8 real Chromium journeys |
-| Container image, compose dev stack (app + PostgreSQL 16), health/readiness, JSON logs + correlation IDs, CI workflow with quality gates | ✅ Implemented; NOT deployed (no cloud credentials) |
-| Test suite | ✅ 149 backend tests + 8 browser journeys, all passing |
+| # | Mission capability | Proof |
+|---|---|---|
+| A | Request → consent → triage → plan → approval → dispatch → idempotent delivery → evidence receipt | `tests/test_mission_a_e2e.py` |
+| B | Self-healing: depot outage + route closure + vehicle breakdown → recovery plans, human approval, zero lost work, queue/plan concordance 1.0 | `tests/test_mission_b_e2e.py` |
+| C | Cross-NGO resource sharing with sequential dual approval and dual-ledger atomic movement | `tests/test_mission_c_e2e.py` |
+| D | Procurement: supplier verification, budget enforcement, goods receipt with discrepancy handling | `tests/test_mission_d_e2e.py` |
+| E | Impact reports recomputed from receipts + ledger + audit with explicit formulas and provenance hash | `tests/test_mission_e_e2e.py` |
 
-See `docs/phase-2/FINAL_PHASE_2_REPORT.md` for evidence, measured load results, and precise external blockers.
+## What's actually implemented (honesty included)
 
-## Quick start
+✅ **Multi-tenant platform**: orgs, memberships, roles, revocable sessions, tenant isolation on every query (red-team suite proves forged headers fail closed).
+✅ **Optimizer**: priority-weighted insertion + priority-preserving 2-opt — a *heuristic*, honestly labeled, never claimed exact; dispatch queue is a pure projection of the approved plan (concordance 1.0, P0-tested).
+✅ **Agents with contracts**: triage/extraction, planning proposal, recovery interpretation — every action schema-validated with postconditions verified against real state. Deterministic provider by default; Mistral/OpenAI-compatible adapter ready (real inference BLOCKED without keys — never simulated).
+✅ **Trust architecture**: beneficiary consent (required at intake, revocable, blocks delivery while revoked), duplicate detection routed to humans (never auto-denied), hash-chained tamper-evident audit, idempotent receipts/inventory/ledger keys.
+✅ **System design, engineered and visualized**: token-bucket rate limiting (429 + Retry-After), circuit breaker + full-jitter retries on the provider path, transactional outbox with dead-letter queue, DB-claimed durable scheduler (UTC, duplicate-proof). Kubernetes/Kafka/Redis/2PC **explicitly rejected with rationale** — see the decision matrix.
+✅ **System Design Studio** (in-app): all 20 foundational system-design topics mapped to THIS codebase with honest status chips, live failure lab (real 429 / scheduler / idempotency runs), request trace, light/dark themes.
+❌ **Honestly BLOCKED** (no credentials exist in this environment): OutSystems ODC access, live LLM keys, OIDC identity provider, PostgreSQL server, notification providers. Interfaces are prepared and labeled — nothing is faked.
+
+## Quick start (60 seconds)
 
 ```bash
 cd backend
 pip install -r requirements.txt
-
-# Run the tests (149 tests, ~20 s; uses a temporary database)
-python -m pytest
-
-# Run real browser journeys (needs: pip install pytest-playwright && playwright install chromium)
-python -m pytest tests/browser -m browser
-
-# Run the app
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-# Open http://127.0.0.1:8000/
+# open http://127.0.0.1:8000/ → log in as the coordinator identity
 ```
 
-Windows 1-click: run `start.bat` (repo root's parent folder) or `start.ps1`.
+Windows 1-click: `start.bat` (repo root's parent folder) or `start.ps1`.
 
-## Run the benchmark
+## Verify everything yourself
 
 ```bash
 cd backend
-python -m app.benchmark        # runs 9-run matrix, writes JSON artifacts to benchmarks/results/
-```
-Or in the app: **Benchmark Arena → Run** (live simulation via API).
-Results are computed from real execution traces — they vary by seed and are reproducible.
-
-## Project structure (actual)
-
-```
-aidnexus-one/
-  AGENTS.md                      # authoritative project instructions
-  backend/
-    app/                         # FastAPI app: models, optimizer, agents, state engine, benchmark, API
-    tests/                       # 81 tests: optimizer, state machine, queue concordance, agents, metrics, API
-    requirements.txt, pytest.ini
-  frontend/                      # vanilla JS/CSS/HTML mission-control dashboard (no build step, no CDN)
-  benchmarks/results/            # committed benchmark artifacts (JSON)
-  docs/
-    audit/                       # initial state, ranked findings, bugs fixed, unresolved issues, final report
-    context/                     # current state, invariants, decision log, worklog
-    metrics/                     # metric registry, verified metrics
-    agents/                      # agent action catalog, agent evaluation report
-    benchmarks/                  # final benchmark report
-    quality/                     # security review, UX review
-    (plus the original planning/spec documents, clearly aspirational where not implemented)
-  ../outsystems/                 # ODC application blueprints (spec only — no ODC app is built)
+python -m pytest                          # 256 tests (~60 s, temp DB)
+python -m pytest tests/browser -m browser # 11 real Chromium journeys
+python scripts/validate_feature_atlas.py  # ATLAS VALID
+python -m app.benchmark                    # reproducible optimizer benchmarks
 ```
 
-## Core differentiator
+## The 5-minute demo
 
-**Autonomous humanitarian disruption recovery with evidence.** When a depot
-floods or a route is severed, Agent 3 assesses impact, completed deliveries are
-sealed as immutable, Agent 2 replans around the disruption in milliseconds, and
-**nothing changes until a human approves** — with a real before/after diff and a
-hash-chained audit trail. Benchmark: replanning recovers 44% of
-disruption-affected deliveries (baselines recover 0%) and delivers +10–18% more
-missions than static optimization (`docs/benchmarks/FINAL_BENCHMARK_REPORT.md`).
+Follow `docs/phase-4/DEMO_RUNBOOK.md`: mission command → AI intake with consent → depot failure → human-approved recovery → volunteer signature delivery → cross-NGO transfer → evidence-linked impact report with provenance hash. One-click scenario reset; simulated records always labeled.
 
-## Honesty statement
+## Explore
 
-This README describes the implemented system only. aspirational/planned
-capabilities are marked ❌ and detailed in `docs/context/CURRENT_STATE.md`.
-The benchmark numbers above come from the committed artifacts in
-`benchmarks/results/` and can be regenerated in ~1 second.
+- **8 in-app workspaces**: Mission Command, Disaster Twin, AI Intake & Triage, Field Volunteer, Benchmark Arena, Evidence Ledger, Feature Atlas (1,080-feature live portfolio), NGO Workflows, System Design Studio.
+- **Docs by phase**: `docs/phase-2` (production readiness + browser/load evidence), `docs/product` (the 1,080-feature atlas + validator), `docs/phase-4` (five mission capabilities + security red-team + benchmarks), `docs/system-design` (20-topic decision matrix + failure lab).
 
-## License
+## AI-assistance disclosure
 
-MIT — see [LICENSE](./LICENSE).
+This project was built with the help of Mistral Vibe (AI coding agent) under the direction of the repository owner, following the competition's AI policy. All engineering claims in this README and the docs are backed by executable tests committed in this repository — the suite above is the proof.

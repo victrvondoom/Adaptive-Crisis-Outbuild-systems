@@ -1198,4 +1198,12 @@ window.addEventListener("DOMContentLoaded", () => {
     if (state.activeTab === "mission-command") renderCrisisMap();
   });
   setInterval(tickSimulationStep, 1000);
+  // Live auto-refresh (Phase V: "everything dynamic"): the mission command
+  // center polls the authoritative /state projection every 6s, so approvals,
+  // disruptions and deliveries made anywhere show up without manual reloads.
+  setInterval(async () => {
+    if (!auth.token || state.activeTab !== "mission-command") return;
+    if (typeof document === "undefined" || document.hidden) return;
+    await syncStateWithBackend();
+  }, 6000);
 });
