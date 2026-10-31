@@ -34,8 +34,12 @@ MEDICAL_VEHICLE_TYPES = {"Medical Evac Van"}
 
 
 class CrisisStateEngine:
-    def __init__(self, seed: int = 42):
+    def __init__(self, seed: int = 42, org_id: str = "ORG-PACIFIC", persist: bool = True):
         self.seed = seed
+        self.org_id = org_id
+        # Durable write-through: business records (requests, receipts, plans,
+        # audit, disruptions) persist to the database when available.
+        self.persist = persist
         self.optimizer = OptimizerEngine()
         self.agent1 = NeedToMissionAgent()
         self.agent2 = ResourceStrategistAgent()
@@ -63,6 +67,170 @@ class CrisisStateEngine:
         self.delivery_receipts: Dict[str, Dict[str, Any]] = {}
 
         self.reset_scenario(seed=seed)
+        if self.persist:
+            self.reconcile_from_db()
+
+    # ------------------------------------------------------------------
+    # Durable write-through (Phase II persistence)
+    # ------------------------------------------------------------------
+    def _db_audit(self, event_type, actor_id, actor_type, entity_type, entity_id, summary, details=None):
+        """Mirror an audit event into the persisted, org-scoped hash chain."""
+        if not self.persist:
+            return
+        try:
+            from .db import session_scope
+            from . import persistence
+            with session_scope() as session:
+                persistence.append_audit_event(
+                    session, org_id=self.org_id, event_type=event_type, actor_id=actor_id,
+                    actor_type=actor_type.value if hasattr(actor_type, "value") else str(actor_type),
+                    entity_type=entity_type, entity_id=entity_id, summary=summary,
+                    details=details or {})
+        except Exception as e:  # persistence must not crash the live simulation
+            import logging
+            logging.getLogger("aidnexus.persistence").error("audit write-through failed: %s", e)
+
+    def reconcile_from_db(self):
+        """Restart recovery: load durable business records for this org.
+
+        - First boot (no persisted requests): persist the seeded scenario.
+        - Later boots: DB-delivered requests stay delivered (immutable);
+          DB-only requests (e.g. triage-created while a previous process ran)
+          are restored into the engine.
+        """
+        from .db import session_scope
+        from . import persistence
+        with session_scope() as session:
+            # First boot for an org also seeds its inventory from the scenario
+            # (bootstrap covers the demo orgs; any other org starts here).
+            existing_inv = persistence.get_inventory(session, self.org_id)
+            if not existing_inv:
+                for depot in self.depots.values():
+                    for item_type, qty in depot.inventory.items():
+                        persistence.seed_inventory(session, self.org_id,
+                                                   depot_id=depot.id,
+                                                   item_type=item_type, quantity=qty)
+            db_rows = persistence.list_requests(session, org_id=self.org_id)
+            if not db_rows:
+                for req in self.requests.values():
+                    persistence.persist_request(session, self.org_id, self._req_dict(req))
+                persistence.append_audit_event(
+                    session, org_id=self.org_id, event_type="SCENARIO_PERSISTED",
+                    actor_id="SYSTEM", actor_type="SYSTEM", entity_type="SYSTEM",
+                    entity_id=self.org_id,
+                    summary=f"Seeded scenario persisted for {self.org_id} ({len(self.requests)} requests).")
+                return
+            # strip org-qualified prefixes back to engine ids
+            from .persistence import raw_req
+            for row in db_rows:
+                row.id = raw_req(row.id)
+            # 1) DB-delivered requests remain delivered in the engine (immutable)
+            for row in db_rows:
+                req = self.requests.get(row.id)
+                if req is not None:
+                    if row.status == "DELIVERED" and not req.is_delivered:
+                        req.status = MissionStatus.DELIVERED
+                        req.is_delivered = True
+                        req.delivery_timestamp = row.delivered_at or req.delivery_timestamp
+                else:
+                    # Request created outside the seed (e.g. agent triage): restore
+                    restored = AidRequest(
+                        id=row.id, requester_name=row.requester_name,
+                        location=Location(id=f"LOC-{row.id}", name=row.sector,
+                                          lat=row.lat, lng=row.lng, sector=row.sector),
+                        items=[AidItem(**it) for it in (row.items or [])],
+                        priority=PriorityLevel(row.priority),
+                        status=MissionStatus(row.status),
+                        created_at=row.created_at,
+                        deadline_hours=row.deadline_hours,
+                        affected_people=row.affected_people,
+                        special_notes=row.special_notes,
+                        duplicate_of_id=row.duplicate_of_id,
+                        intake_channel=row.intake_channel,
+                        is_delivered=(row.status == "DELIVERED"),
+                        delivery_timestamp=row.delivered_at,
+                        urgency_score=row.urgency_score)
+                    self.requests[row.id] = restored
+            # 2) Requests delivered in-engine but not yet in DB keep engine state
+            #    (they will be persisted by the delivery write-through).
+
+    @staticmethod
+    def _req_dict(req: AidRequest) -> dict:
+        return {
+            "id": req.id, "requester_name": req.requester_name,
+            "location": {"lat": req.location.lat, "lng": req.location.lng,
+                         "sector": req.location.sector},
+            "items": [it.model_dump() for it in req.items],
+            "priority": req.priority.value, "status": req.status.value,
+            "created_at": req.created_at, "deadline_hours": req.deadline_hours,
+            "affected_people": req.affected_people,
+            "special_notes": req.special_notes,
+            "duplicate_of_id": req.duplicate_of_id,
+            "intake_channel": req.intake_channel,
+            "urgency_score": req.urgency_score,
+        }
+
+    def persist_request_write_through(self, req: AidRequest):
+        if not self.persist:
+            return
+        from .db import session_scope
+        from . import persistence
+        with session_scope() as session:
+            persistence.persist_request(session, self.org_id, self._req_dict(req))
+
+    def persist_status_write_through(self, request_id: str, status: MissionStatus,
+                                     delivered_at: float | None = None):
+        if not self.persist:
+            return
+        from .db import session_scope
+        from . import persistence
+        with session_scope() as session:
+            persistence.update_request_status(session, self.org_id, request_id,
+                                              status.value, delivered_at)
+
+    def persist_plan_write_through(self, plan: MissionPlanVersion, approval=None):
+        if not self.persist:
+            return
+        from .db import session_scope
+        from . import persistence
+        payload = plan.model_dump()
+        with session_scope() as session:
+            row = persistence.persist_plan(session, self.org_id, payload)
+            if approval:
+                persistence.record_approval(session, self.org_id, row.id,
+                                            approver=approval["user_id"],
+                                            decision=approval["decision"],
+                                            reason=approval.get("reason"))
+        return payload
+
+    def persist_disruption_write_through(self, disruption: Disruption):
+        if not self.persist:
+            return
+        from .db import session_scope
+        from . import persistence
+        with session_scope() as session:
+            persistence.persist_disruption(session, self.org_id, {
+                "id": disruption.id, "type": disruption.type.value,
+                "title": disruption.title, "hazard_radius_km": disruption.hazard_radius_km,
+                "active": disruption.active, "description": disruption.description,
+                "affected_lat": disruption.affected_lat, "affected_lng": disruption.affected_lng,
+                "location_id": disruption.location_id, "severity": disruption.severity,
+            })
+
+    def persist_delivery_write_through(self, req: AidRequest, volunteer_name: str,
+                                       signature_hash: str):
+        """Receipt + inventory movements + request status in ONE transaction."""
+        if not self.persist:
+            return {"persisted": False}
+        from .db import session_scope
+        from . import persistence
+        items = [it.model_dump() for it in req.items]
+        with session_scope() as session:
+            res = persistence.confirm_delivery_persisted(
+                session, org_id=self.org_id, request_id=req.id,
+                volunteer_name=volunteer_name, signature_hash=signature_hash,
+                items=items, depot_id=req.assigned_depot_id)
+        return res
 
     # ------------------------------------------------------------------
     # Audit (hash-chained)
@@ -84,6 +252,8 @@ class CrisisStateEngine:
         self._audit_tail_hash = sha
         if len(self.audit_events) > AUDIT_RETENTION_LIMIT:
             self.audit_events = self.audit_events[-AUDIT_RETENTION_LIMIT:]
+        # Durable mirror in the org-scoped persisted chain
+        self._db_audit(event_type, actor_id, actor_type, entity_type, entity_id, summary, det)
         return event
 
     # ------------------------------------------------------------------
@@ -223,6 +393,9 @@ class CrisisStateEngine:
         self.plans[plan.version_id] = plan
         self.current_plan_id = plan.version_id
         self._apply_plan_assignments(plan, activate=True)
+        self.persist_plan_write_through(plan, approval={
+            "user_id": "SYSTEM_BOOTSTRAP", "decision": "AUTO_ACTIVATED",
+            "reason": "Initial plan auto-activated by documented system bootstrap"})
 
         self.log_audit(
             event_type="PLAN_INITIALIZED", actor_id="AGENT-02-RESOURCE", actor_type=ActorType.AGENT,
@@ -329,6 +502,7 @@ class CrisisStateEngine:
             affected_lat=lat, affected_lng=lng, location_id=depot_id,
             severity="CRITICAL", active=True, hazard_radius_km=hazard_radius_km)
         self.disruptions[dis_id] = disruption
+        self.persist_disruption_write_through(disruption)
 
         if depot_id and depot_id in self.depots and dtype == DisruptionType.DEPOT_OUTAGE:
             self.depots[depot_id].status = "FLOODED"
@@ -405,6 +579,7 @@ class CrisisStateEngine:
                 summary=f"Pending proposal {superseded.version_id} superseded by {new_version} "
                         f"(new disruption takes precedence; superseded plan retained in history).")
         self.plans[new_version] = new_plan
+        self.persist_plan_write_through(new_plan)
         self.pending_plan_id = new_version
 
         self.log_audit(
@@ -437,6 +612,9 @@ class CrisisStateEngine:
         self.current_plan_id = plan.version_id
         self.pending_plan_id = None
         self._apply_plan_assignments(plan, activate=True)
+        self.persist_plan_write_through(plan, approval={
+            "user_id": f"identity:{approver_name}", "decision": "APPROVED",
+            "reason": "Human coordinator approval via API"})
 
         self.log_audit(
             event_type="APPROVAL_GRANTED", actor_id=approver_name, actor_type=ActorType.HUMAN,
@@ -476,6 +654,9 @@ class CrisisStateEngine:
             "signature_hash": sig_hash, "duplicate": was_delivered,
         }
         self.delivery_receipts[req.id] = receipt
+
+        # Durable write-through: receipt + movements + status in one transaction.
+        self.persist_delivery_write_through(req, volunteer_name=actor, signature_hash=sig_hash)
 
         self.log_audit(
             event_type=audit_event_type, actor_id=actor,
@@ -520,6 +701,7 @@ class CrisisStateEngine:
             raise ValueError("DELIVERED must be set via delivery confirmation "
                              "(POST /api/v1/deliveries/confirm), not a raw transition.")
         req.status = new_status
+        self.persist_status_write_through(request_id, new_status)
         self.log_audit(
             event_type="STATE_TRANSITION", actor_id=actor_id, actor_type=ActorType.HUMAN,
             entity_type="AidRequest", entity_id=request_id,

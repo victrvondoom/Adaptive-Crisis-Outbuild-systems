@@ -79,7 +79,7 @@ class TestAgent2ResourceStrategist:
 
     def _engine(self):
         from app.state_engine import CrisisStateEngine
-        return CrisisStateEngine(seed=42)
+        return CrisisStateEngine(seed=42, org_id="ORG-PACIFIC", persist=False)
 
     def test_formulates_plan_with_approval_request(self):
         eng = self._engine()
@@ -161,7 +161,7 @@ class TestAgent3Recovery:
 
     def _engine(self):
         from app.state_engine import CrisisStateEngine
-        return CrisisStateEngine(seed=42)
+        return CrisisStateEngine(seed=42, org_id="ORG-PACIFIC", persist=False)
 
 
 class TestSanitizeText:
