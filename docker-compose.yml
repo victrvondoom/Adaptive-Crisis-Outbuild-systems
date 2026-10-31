@@ -1,0 +1,40 @@
+# AIDNEXUS ONE — local development stack (NOT a production deployment)
+#
+# docker compose up --build
+#   app:       http://localhost:8000  (dev auth enabled)
+#   postgres:  localhost:5432 (aidnexus / aidnexus / aidnexus)
+#
+# Production notes (docs/phase-2/CLOUD_DEPLOYMENT.md): the same image runs with
+# DATABASE_URL pointing at managed PostgreSQL, APP_ENV=production, and an OIDC
+# provider configured. Compose here is a DEVELOPMENT environment only.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aidnexus
+      POSTGRES_PASSWORD: aidnexus
+      POSTGRES_DB: aidnexus
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aidnexus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://aidnexus:aidnexus@postgres:5432/aidnexus
+      APP_ENV: development
+      DEV_AUTH_ENABLED: "1"
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

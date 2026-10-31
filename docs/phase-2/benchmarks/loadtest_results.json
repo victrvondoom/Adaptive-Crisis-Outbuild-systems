@@ -1,0 +1,42 @@
+{
+  "environment": "local uvicorn + SQLite WAL, single process",
+  "timestamp": 1793430009.4368303,
+  "runs": [
+    {
+      "users": 10,
+      "requests": 150,
+      "rps": 12.1,
+      "p50_ms": 775.5,
+      "p95_ms": 1071.5,
+      "p99_ms": 1245.6,
+      "max_ms": 1246.4,
+      "errors": 0,
+      "error_types": [],
+      "wall_seconds": 12.4
+    },
+    {
+      "users": 25,
+      "requests": 375,
+      "rps": 13.2,
+      "p50_ms": 1775.1,
+      "p95_ms": 2524.0,
+      "p99_ms": 3163.5,
+      "max_ms": 3261.4,
+      "errors": 0,
+      "error_types": [],
+      "wall_seconds": 28.5
+    },
+    {
+      "users": 50,
+      "requests": 750,
+      "rps": 14.3,
+      "p50_ms": 3190.1,
+      "p95_ms": 5163.2,
+      "p99_ms": 6458.8,
+      "max_ms": 7180.2,
+      "errors": 0,
+      "error_types": [],
+      "wall_seconds": 52.5
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+# AIDNEXUS ONE — CI quality gates
+#
+# Fast PR lane: lint+format check, backend tests, browser E2E, container build.
+# The real-model evaluation suite is NOT run here (no credentials in CI);
+# see docs/agents/AGENT_EVALUATION_REPORT.md for the deterministic coverage.
+#
+# NOTE: this repository currently has no remote. This workflow activates when
+# a GitHub remote is added; it is also validated locally by running the same
+# commands (see docs/phase-2/BASELINE_VERIFICATION.md).
+
+name: ci
+
+on:
+  push:
+    branches: [main, phase-2-production-readiness]
+  pull_request:
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aidnexus
+          POSTGRES_PASSWORD: aidnexus
+          POSTGRES_DB: aidnexus_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U aidnexus"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://aidnexus:aidnexus@localhost:5432/aidnexus_test
+      APP_ENV: test
+      DEV_AUTH_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install ruff pyjwt cryptography httpx pytest pytest-playwright
+          playwright install --with-deps chromium
+
+      - name: Lint (ruff, non-blocking format check)
+        working-directory: backend
+        run: ruff check app tests --select E9,F63,F7,F82,F401 --ignore F401
+
+      - name: Backend unit + integration tests (incl. DB, authz, optimizer proofs)
+        working-directory: backend
+        run: python -m pytest -m "not browser" -v
+
+      - name: Queue concordance gate (P0)
+        working-directory: backend
+        run: python -m pytest tests/test_queue_concordance.py -v
+
+      - name: Tenant isolation gate (P0)
+        working-directory: backend
+        run: python -m pytest tests/test_authz_phase2.py -v
+
+      - name: Browser end-to-end journeys
+        working-directory: backend
+        run: python -m pytest tests/browser -m browser -v
+
+      - name: Benchmark smoke (reproducibility + zero integrity violations)
+        working-directory: backend
+        run: python -m pytest tests/test_metrics.py -v
+
+      - name: Container build validation
+        run: docker build -t aidnexus-ci:${{ github.sha }} .
+
+      - name: Secret scan (fail on obvious committed secrets)
+        run: |
+          ! grep -rInE "(api[_-]?key|password|secret)\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}['\"]" \
+            --include="*.py" --include="*.yml" --include="*.env*" . \
+            --exclude-dir=.git --exclude=".env.example" || {
+              echo "Potential secret found"; exit 1; }
