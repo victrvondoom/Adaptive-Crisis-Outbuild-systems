@@ -9,7 +9,7 @@ persistence.apply_inventory_movement — no duplicate ledger logic.
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import select
 
@@ -567,21 +567,56 @@ def _request_impact_report(org_id: str, request_id: str) -> Dict[str, Any]:
 
 
 # ======================================================================
-# Outbox dispatch (Wave 9: idempotent consumer)
+# Outbox dispatch (Wave 9: idempotent consumer; Phase V: bounded retries + DLQ)
 # ======================================================================
 
-def dispatch_outbox(limit: int = 20) -> Dict[str, Any]:
-    """Processes pending outbox events. Honest semantics: there is no external
-    message provider in this environment, so 'processing' records delivery
-    attempt + marks processed (observability). No external side effect is
-    claimed. Idempotent: processed events are never re-claimed."""
+OUTBOX_MAX_ATTEMPTS = 5
+
+
+def dispatch_outbox(limit: int = 20,
+                    fault_injector: Optional[Callable[[str], None]] = None) -> Dict[str, Any]:
+    """Processes pending outbox events (topic 15).
+
+    Honest semantics: there is no external message provider in this
+    environment, so 'processing' records delivery state for observability;
+    no external side effect is claimed. Duplicate delivery is assumed
+    possible and handled idempotently (processed events are never re-claimed).
+
+    Bounded retries + dead-letter (Phase V): a failing event is retried on
+    later dispatches; after OUTBOX_MAX_ATTEMPTS it is dead-lettered — removed
+    from the main queue with its error recorded for inspection/replay.
+    `fault_injector(event_type)` is a test hook for deterministic failure
+    injection (never set in production paths).
+    """
     processed: List[Dict[str, Any]] = []
+    dead_lettered: List[Dict[str, Any]] = []
+    failed: List[Dict[str, Any]] = []
     with session_scope() as session:
         pending = persistence.claim_pending_outbox(session, limit=limit)
         for ev in pending:
-            ev.attempts += 1
-            persistence.mark_outbox_processed(session, ev.id)
-            processed.append({"outbox_id": ev.id, "event_type": ev.event_type,
-                              "org_id": ev.org_id, "idempotency_key": ev.idempotency_key})
+            try:
+                if fault_injector is not None:
+                    fault_injector(ev.event_type)
+                # mark_outbox_processed increments attempts atomically on success
+                persistence.mark_outbox_processed(session, ev.id)
+                processed.append({"outbox_id": ev.id, "event_type": ev.event_type,
+                                  "org_id": ev.org_id,
+                                  "idempotency_key": ev.idempotency_key})
+            except Exception as e:  # noqa: BLE001 — durable failure record
+                ev.attempts += 1
+                ev.last_error = str(e)[:500]
+                if ev.attempts >= OUTBOX_MAX_ATTEMPTS:
+                    # Dead-letter: stop redelivery, keep for inspection
+                    ev.processed_at = _now()
+                    ev.last_error = f"dead-lettered after {ev.attempts} attempts: {e}"
+                    dead_lettered.append({"outbox_id": ev.id,
+                                          "event_type": ev.event_type,
+                                          "error": ev.last_error})
+                else:
+                    failed.append({"outbox_id": ev.id,
+                                   "event_type": ev.event_type,
+                                   "attempts": ev.attempts,
+                                   "error": str(e)[:200]})
         session.flush()
-    return {"processed": processed, "count": len(processed)}
+    return {"processed": processed, "count": len(processed),
+            "failed": failed, "dead_lettered": dead_lettered}

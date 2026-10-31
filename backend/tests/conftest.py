@@ -53,6 +53,11 @@ def client():
     from app import main as main_mod
     main_mod.PRODUCTION_ADAPTER = None
     main_mod._build_engines(persist=True)
+    # Phase V: isolate the global API rate limiter per test (buckets are
+    # module-level singletons; without this, org-scoped budgets accumulate
+    # across tests and produce order-dependent 429s).
+    if hasattr(main_mod, "API_RATE_LIMITER"):
+        main_mod.API_RATE_LIMITER.reset()
     tc = TestClient(main_mod.app)
 
     class AuthClient:

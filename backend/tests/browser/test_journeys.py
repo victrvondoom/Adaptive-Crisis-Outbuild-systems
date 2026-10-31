@@ -238,6 +238,45 @@ class TestJourneys:
         page.screenshot(path=os.path.join(SHOT_DIR, "ngo_workflows_desktop.png"))
         page.close()
 
+    def test_system_design_studio_journey(self, server, browser):
+        """Phase V: System Design Studio — 20 topics, map, trace, live lab."""
+        page = browser.new_page(viewport=VIEWPORTS["desktop"])
+        _login(page, server, "coordinator@example.dev")
+        page.click("button[data-tab='studio']")
+        # all 20 topic cards render with honest status chips
+        page.wait_for_selector("#sdTopicList .sd-topic-card", timeout=15000)
+        assert page.locator("#sdTopicList .sd-topic-card").count() == 20
+        # topic detail: open topic 14 (Idempotency) and check the required fields
+        page.click("text=14 · Idempotency")
+        page.wait_for_selector("#sdTopicDetail .sd-field", timeout=10000)
+        detail = page.locator("#sdTopicDetail").inner_text().upper()
+        assert "IMPLEMENTED" in detail and "TESTING METHODOLOGY" in detail
+        assert "KNOWLEDGE CHECK" in detail
+        # reveal a quiz answer
+        page.click("#sdTopicDetail .sd-quiz-q >> nth=0")
+        assert "open" in page.locator("#sdTopicDetail .sd-quiz-a >> nth=0").get_attribute("class")
+        # architecture map: inspect a component
+        page.click("text=🗺️ Architecture Map")
+        page.click("text=Transactional outbox + DLQ")
+        assert "dead-letter" in page.locator("#sdMapDetail").inner_text().lower()
+        # request trace renders the real chain
+        page.click("text=🧭 Request Trace")
+        assert page.locator(".sd-trace-step").count() >= 14
+        # failure lab: REAL scheduler duplicate-trigger scenario
+        page.click("text=🧪 Failure Lab")
+        page.click("text=Duplicate scheduled job")
+        page.wait_for_selector("#sdLabResult .atlas-feature", timeout=20000)
+        lab = page.locator("#sdLabResult").inner_text()
+        assert "REAL RUN" in lab and "no-op" in lab.lower()
+        # light theme toggle works
+        page.click("#sdThemeBtn")
+        assert "sd-light" in (page.evaluate("document.body.className"))
+        page.click("#sdThemeBtn")
+        # evidence screenshot
+        os.makedirs(SHOT_DIR, exist_ok=True)
+        page.screenshot(path=os.path.join(SHOT_DIR, "system_design_studio.png"))
+        page.close()
+
     def test_screenshots_three_viewports(self, server, browser):
         os.makedirs(SHOT_DIR, exist_ok=True)
         for name, vp in VIEWPORTS.items():

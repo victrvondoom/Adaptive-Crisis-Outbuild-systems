@@ -249,6 +249,14 @@ function switchTab(tabId) {
   });
   if (tabId === "mission-command") renderCrisisMap();
   if (tabId === "atlas" && auth.token && !atlasState.loaded) loadAtlas();
+  if (tabId === "ops" && auth.token) {
+    opsLoadTransfers();
+    opsLoadProcurements();
+  }
+  if (tabId === "studio" && !sdState.initialized) {
+    sdState.initialized = true;
+    initStudio();
+  }
 }
 window.switchTab = switchTab;
 

@@ -1325,3 +1325,60 @@ body { overflow-x: hidden; }
 .status-chip.BLOCKED_EXTERNAL_DEPENDENCY { background:rgba(239,68,68,0.18); color:#f87171; }
 .status-chip.PROPOSED { background:rgba(148,163,184,0.15); color:#94a3b8; }
 @media (max-width: 640px) { .atlas-summary-grid { grid-template-columns:1fr 1fr; } .atlas-domains-grid { grid-template-columns:1fr; } }
+
+/* ============ System Design Studio (Phase V) ============ */
+.sd-subnav { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.sd-chip { background: #1e293b; color: #cbd5e1; border: 1px solid var(--border-strong);
+  border-radius: 999px; padding: 0.35rem 0.9rem; font-size: 0.78rem; cursor: pointer; }
+.sd-chip.active { background: var(--accent, #38bdf8); color: #0b1220; font-weight: 600; }
+.sd-chapter-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.6rem 0; }
+.sd-chapter { background: #16233b; color: #cbd5e1; border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 0.4rem 0.8rem; font-size: 0.76rem; cursor: pointer; }
+.sd-chapter.active { border-color: var(--accent, #38bdf8); color: #fff; }
+.sd-topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.6rem; }
+.sd-topic-card, .sd-map-card { background: #111a2c; border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 0.7rem; cursor: pointer; transition: border-color 0.15s; }
+.sd-topic-card:hover, .sd-map-card:hover, .sd-topic-card:focus, .sd-map-card:focus {
+  border-color: var(--accent, #38bdf8); outline: none; }
+.sd-map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.6rem; }
+.sd-area { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent, #38bdf8); font-weight: 700; }
+.sd-topic-detail { background: #111a2c; border: 1px solid var(--border-strong);
+  border-radius: 12px; padding: 1rem; margin-top: 0.8rem; }
+.sd-field { margin: 0.7rem 0; }
+.sd-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent, #38bdf8); font-weight: 700; margin-bottom: 0.2rem; }
+.sd-value { font-size: 0.86rem; color: #e2e8f0; line-height: 1.45; }
+.sd-value code { background: #0b1220; padding: 0.1rem 0.35rem; border-radius: 4px;
+  font-size: 0.8rem; color: #7dd3fc; }
+.sd-code { background: #0b1220; border: 1px solid var(--border-strong); border-radius: 8px;
+  padding: 0.6rem; font-size: 0.78rem; color: #a5f3fc; overflow-x: auto; white-space: pre-wrap; }
+.sd-quiz { margin: 0.4rem 0; }
+.sd-quiz-q { display: block; width: 100%; text-align: left; background: #16233b; color: #e2e8f0;
+  border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.5rem 0.7rem;
+  font-size: 0.82rem; cursor: pointer; }
+.sd-quiz-a { display: none; font-size: 0.8rem; color: #86efac; padding: 0.5rem 0.7rem 0 0.9rem; }
+.sd-quiz-a.open { display: block; }
+.sd-trace-step { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.45rem 0;
+  border-bottom: 1px dashed rgba(148,163,184,0.2); }
+.sd-trace-n { min-width: 1.7rem; height: 1.7rem; border-radius: 50%;
+  background: var(--accent, #38bdf8); color: #0b1220; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+.sd-breaker-demo { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; margin: 0.4rem 0; }
+
+/* Light theme (Studio toggle): class applied to body */
+.sd-light { --bg: #f1f5f9; --panel: #ffffff; --text-primary: #0f172a; --text-secondary: #475569;
+  --border-strong: #cbd5e1; }
+body.sd-light { background: #f1f5f9; color: #0f172a; }
+body.sd-light .benchmark-panel, body.sd-light .panel-card, body.sd-light .sd-topic-detail,
+body.sd-light .sd-topic-card, body.sd-light .sd-map-card, body.sd-light .sd-chapter,
+body.sd-light .sd-chip, body.sd-light .sd-quiz-q { background: #ffffff; color: #0f172a;
+  border-color: #cbd5e1; }
+body.sd-light .sd-value, body.sd-light .dnum, body.sd-light .fdesc { color: #334155; }
+body.sd-light .sd-value code, body.sd-light .sd-code { background: #e2e8f0; color: #075985; }
+body.sd-light h2, body.sd-light h3, body.sd-light .dname, body.sd-light .fname { color: #0f172a; }
+body.sd-light .sd-quiz-a { color: #15803d; }
+@media (max-width: 640px) {
+  .sd-topic-grid, .sd-map-grid { grid-template-columns: 1fr; }
+  .sd-chapter-row { overflow-x: auto; flex-wrap: nowrap; }
+}

@@ -110,6 +110,19 @@ class DeterministicProvider:
         return result
 
 
+_SHARED_PROVIDER_BREAKER = None
+
+
+def _provider_breaker():
+    """Lazily-created shared circuit breaker for HTTP model providers."""
+    global _SHARED_PROVIDER_BREAKER
+    from .resilience_patterns import CircuitBreaker
+    if _SHARED_PROVIDER_BREAKER is None:
+        _SHARED_PROVIDER_BREAKER = CircuitBreaker(
+            "llm-provider", failure_threshold=5, recovery_timeout=30.0)
+    return _SHARED_PROVIDER_BREAKER
+
+
 class HttpLLMProvider:
     """OpenAI-compatible chat-completions provider (Mistral, OpenAI, etc.).
     Timeouts and bounded retries; JSON mode enforced; output validated
@@ -141,38 +154,58 @@ class HttpLLMProvider:
         }
         headers = {"Authorization": f"Bearer {self.api_key}",
                    "Content-Type": "application/json"}
-        last_error = None
-        for attempt in range(1, self.max_attempts + 1):
-            try:
-                with httpx.Client(timeout=self.timeout) as client:
-                    resp = client.post(f"{self.base_url}/chat/completions",
-                                       json=payload, headers=headers)
-                if resp.status_code >= 500 and attempt < self.max_attempts:
-                    last_error = f"server error {resp.status_code}"
-                    continue
-                if resp.status_code == 429 and attempt < self.max_attempts:
-                    last_error = "rate limited"
-                    time.sleep(0.5 * attempt)
-                    continue
-                resp.raise_for_status()
-                content = resp.json()["choices"][0]["message"]["content"]
-                parsed = json.loads(content)
-                validate_schema(parsed, schema)
-                return parsed
-            except httpx.HTTPStatusError as e:
-                last_error = f"HTTP {e.response.status_code}"
-            except (httpx.TimeoutException, httpx.TransportError) as e:
-                last_error = f"network: {type(e).__name__}"
-            except (json.JSONDecodeError, SchemaValidationError) as e:
-                last_error = f"invalid model output: {e}"
-                # invalid structured output is NOT retried silently into success
-                break
-        raise ProviderError(f"provider failed after {self.max_attempts} attempts: {last_error}")
+
+        # Phase V: circuit breaker around the external dependency (topic 10).
+        # Fail-fast when the provider is down instead of piling up requests;
+        # HALF_OPEN probes recovery. No silent deterministic fallback: a breaker
+        # trip surfaces as ProviderError -> execution FAILED (honest status).
+        from .resilience_patterns import CircuitBreaker
+        breaker = _provider_breaker()
+        import random as _random
+
+        def _attempt() -> Dict[str, Any]:
+            last_error = None
+            for attempt in range(1, self.max_attempts + 1):
+                try:
+                    with httpx.Client(timeout=self.timeout) as client:
+                        resp = client.post(f"{self.base_url}/chat/completions",
+                                           json=payload, headers=headers)
+                    if resp.status_code >= 500 and attempt < self.max_attempts:
+                        last_error = f"server error {resp.status_code}"
+                        # full-jitter exponential backoff (topic 13)
+                        time.sleep(_random.uniform(0, min(30.0, 1.0 * (2 ** (attempt - 1)))))
+                        continue
+                    if resp.status_code == 429 and attempt < self.max_attempts:
+                        last_error = "rate limited"
+                        # honor Retry-After when supplied (topics 12/13)
+                        retry_after = float(resp.headers.get("Retry-After", 0) or 0)
+                        time.sleep(retry_after if retry_after > 0
+                                   else _random.uniform(0, 1.0 * (2 ** (attempt - 1))))
+                        continue
+                    resp.raise_for_status()
+                    content = resp.json()["choices"][0]["message"]["content"]
+                    parsed = json.loads(content)
+                    validate_schema(parsed, schema)
+                    return parsed
+                except httpx.HTTPStatusError as e:
+                    last_error = f"HTTP {e.response.status_code}"
+                except (httpx.TimeoutException, httpx.TransportError) as e:
+                    last_error = f"network: {type(e).__name__}"
+                except (json.JSONDecodeError, SchemaValidationError) as e:
+                    last_error = f"invalid model output: {e}"
+                    # invalid structured output is NOT retried silently into success
+                    break
+            raise ProviderError(
+                f"provider failed after {self.max_attempts} attempts: {last_error}")
+
+        return breaker.call(_attempt)
 
 
 class MistralProvider(HttpLLMProvider):
     name = "mistral"
 
+    # Phase V: module-level breaker shared by all HTTP provider instances —
+    # one failing endpoint trips one breaker, failing fast for every caller.
     def __init__(self, api_key: str, model: str = "mistral-small-latest"):
         super().__init__(api_key, "https://api.mistral.ai/v1", model)
 

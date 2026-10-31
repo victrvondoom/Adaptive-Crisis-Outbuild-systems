@@ -31,6 +31,7 @@
       <button class="nav-btn" data-tab="ledger" onclick="switchTab('ledger')">📜 Evidence Ledger</button>
       <button class="nav-btn" data-tab="atlas" onclick="switchTab('atlas')">📦 Feature Atlas</button>
       <button class="nav-btn" data-tab="ops" onclick="switchTab('ops')">🤝 NGO Workflows</button>
+      <button class="nav-btn" data-tab="studio" onclick="switchTab('studio')">🏗️ System Design</button>
     </nav>
 
     <!-- Header Actions & Simulation Controls -->
@@ -572,8 +573,71 @@
       </div>
     </div>
 
+    <!-- Tab 9: System Design Studio (Phase V) -->
+    <div id="tab-studio" class="tab-pane">
+      <div class="benchmark-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <div>
+            <h2 style="font-family:var(--font-heading); font-size:1.25rem; color:#fff;">🏗️ System Design Studio</h2>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
+              The 20 foundational system-design topics mapped to THIS codebase — with honest status labels
+              (IMPLEMENTED / MANAGED BY PLATFORM / PREPARED / NOT REQUIRED / BLOCKED / SIMULATED) and links to real tests.
+              Every diagram reflects the actual repository, not a textbook.
+            </p>
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <button class="btn-secondary" onclick="sdSetTheme()" id="sdThemeBtn" aria-label="Toggle light and dark theme">☀️ Light</button>
+          </div>
+        </div>
+
+        <div id="sdOverview" style="margin:0.9rem 0;">
+          <div class="sd-subnav" role="tablist" aria-label="Studio sections">
+            <button class="sd-chip active" onclick="sdSection('topics')" id="sdnav-topics">📚 Topics</button>
+            <button class="sd-chip" onclick="sdSection('map')" id="sdnav-map">🗺️ Architecture Map</button>
+            <button class="sd-chip" onclick="sdSection('trace')" id="sdnav-trace">🧭 Request Trace</button>
+            <button class="sd-chip" onclick="sdSection('lab')" id="sdnav-lab">🧪 Failure Lab</button>
+          </div>
+        </div>
+
+        <!-- TOPICS -->
+        <div id="sdSection-topics">
+          <div class="sd-chapter-row" id="sdChapters" role="tablist" aria-label="Chapters"></div>
+          <div id="sdTopicList" class="sd-topic-grid"></div>
+          <div id="sdTopicDetail" class="sd-topic-detail" hidden></div>
+        </div>
+
+        <!-- MAP -->
+        <div id="sdSection-map" hidden>
+          <div id="sdMapGrid" class="sd-map-grid"></div>
+          <div id="sdMapDetail" class="queue-empty" style="margin-top:0.6rem;">Click a component to inspect it.</div>
+        </div>
+
+        <!-- TRACE -->
+        <div id="sdSection-trace" hidden>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            An actual aid request's journey through this system. No timings are invented —
+            durations exist only where measured telemetry exists.
+          </p>
+          <div id="sdTraceList"></div>
+        </div>
+
+        <!-- LAB -->
+        <div id="sdSection-lab" hidden>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            Failure-injection laboratory. <strong>REAL</strong> scenarios call this live backend;
+            <strong>SIMULATED</strong> ones visualize behavior verified by automated tests.
+            Nothing here mutates real operational records beyond the demo scenario.
+          </p>
+          <div id="sdLabList" class="sd-topic-grid"></div>
+          <div id="sdLabResult" class="queue-empty" style="margin-top:0.6rem;">Pick a scenario to run it.</div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
+  <script src="js/system-design-data.js"></script>
+  <script src="js/system-design-studio.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

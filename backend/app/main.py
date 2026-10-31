@@ -148,6 +148,63 @@ async def request_context(request: Request, call_next):
     return response
 
 
+# ----------------------------------------------------------------------
+# Phase V — Token-bucket rate limiting at the application boundary
+# (System Design Studio topic 01). Edge/CDN limiting remains the production
+# complement and is honestly labeled NOT CONFIGURED in the Studio.
+# ----------------------------------------------------------------------
+from .resilience_patterns import RateLimiter
+
+API_RATE_LIMITER = RateLimiter()
+RATE_LIMIT_CONFIG = {
+    # scope -> (capacity, refill_rate/second). Burst + sustained in one bucket.
+    "anonymous": (30, 0.5),      # unauthenticated: 30 burst, 30/min sustained
+    "user": (120, 2.0),          # authenticated identity: 120 burst, 2/s
+    "org": (600, 10.0),          # per-tenant budget: one org cannot starve others
+    "expensive": (6, 0.1),       # heavy compute endpoints: 6/min
+}
+EXPENSIVE_PATHS = ("/api/v1/benchmark/run", "/api/v1/features/validate",
+                   "/api/v1/sim/tick", "/api/v1/scheduler/tick")
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    path = request.url.path
+    if path in ("/healthz", "/readyz", "/") \
+            or path.startswith(("/css/", "/js/", "/assets/", "/static/")) \
+            or request.method == "OPTIONS":
+        return await call_next(request)
+    import hashlib as _hl
+    now = time.monotonic()
+    scopes = []
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        # Bucket key: hash of the token (auth itself is still enforced later;
+        # the limiter never grants access, it only meters).
+        token_key = _hl.sha256(auth.encode()).hexdigest()[:16]
+        scopes.append((f"user:{token_key}", *RATE_LIMIT_CONFIG["user"]))
+        org = request.headers.get("X-Org-Id")
+        if org:
+            scopes.append((f"org:{org}", *RATE_LIMIT_CONFIG["org"]))
+    else:
+        ip = request.client.host if request.client else "unknown"
+        scopes.append((f"ip:{ip}", *RATE_LIMIT_CONFIG["anonymous"]))
+    if path.startswith(EXPENSIVE_PATHS):
+        scopes.append((f"exp:{path}", *RATE_LIMIT_CONFIG["expensive"]))
+    allowed, retry_after, limiting = API_RATE_LIMITER.check(scopes, now)
+    if not allowed:
+        retry_after = max(retry_after, 1.0)
+        return JSONResponse(
+            status_code=429,
+            content={"error": "Rate limit exceeded",
+                     "message": "You have exhausted your API quota.",
+                     "limiting_scope": limiting,
+                     "retry_after_seconds": round(retry_after, 1)},
+            headers={"Retry-After": str(int(retry_after) + 1),
+                     "X-RateLimit-Scope": limiting})
+    return await call_next(request)
+
+
 def _verified_identity(request: Request) -> ident.VerifiedIdentity:
     """Fail-closed token verification + session liveness + membership scopes."""
     auth = request.headers.get("Authorization", "")
@@ -1264,6 +1321,29 @@ def dispatch_outbox(limit: int = 20,
     state for observability; no external side effect is claimed."""
     guard(user, org_id, Permission.SIM_CONTROL)
     return persistence_phase4.dispatch_outbox(limit=limit)
+
+
+# ---- Durable scheduler (Phase V, topic 20) ----
+
+@app.post("/api/v1/scheduler/tick")
+def scheduler_tick(user: ident.VerifiedIdentity = Depends(get_identity),
+                   org_id: str = Depends(org_context)):
+    """Runs due scheduled jobs under a DB claim lock. Duplicate triggers are
+    no-ops (job not due / already claimed). UTC everywhere."""
+    guard(user, org_id, Permission.SIM_CONTROL)
+    from . import scheduler as sched
+    sched.ensure_jobs_registered()
+    return sched.tick()
+
+
+@app.get("/api/v1/scheduler/status")
+def scheduler_status(user: ident.VerifiedIdentity = Depends(get_identity),
+                     org_id: str = Depends(org_context)):
+    """Durable schedule state: last run, status, error — only what actually
+    ran is claimed to have run."""
+    guard(user, org_id, Permission.READ_ORG_DATA)
+    from . import scheduler as sched
+    return sched.scheduler_status()
 
 
 # ----------------------------------------------------------------------

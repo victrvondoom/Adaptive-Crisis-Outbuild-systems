@@ -355,6 +355,20 @@ class ProcurementRow(Base):
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ScheduledJobRow(Base):
+    """Phase V durable scheduler: one row per job. The lock columns implement
+    atomic claiming so duplicate triggers and concurrent workers are no-ops."""
+    __tablename__ = "scheduled_jobs"
+    job_name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    interval_seconds: Mapped[int] = mapped_column(Integer, default=3600)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    runs: Mapped[int] = mapped_column(Integer, default=0)
+    lock_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    lock_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ResourceTransferRow(Base):
     """Cross-NGO resource transfer (Mission C). Dual-approval state machine:
     PROPOSED -> SOURCE_APPROVED -> DEST_APPROVED -> DISPATCHED -> RECEIVED,
