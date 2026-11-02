@@ -41,3 +41,6 @@
 - If an OutSystems ODC environment becomes available: build the app from
   `outsystems/*.md` specs; the REST contracts in `main.py` are the integration surface.
 - Consider lightweight persistence (SQLite) if the demo must survive restarts.
+
+## 2026-11-02 — Phase VI (advanced system design, topics 21–40)
+See docs/system-design/advanced/WORKLOG.md. Branch phase-6-advanced-system-design.

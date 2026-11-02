@@ -1,0 +1,4 @@
+# Search Architecture (Topic 32)
+
+Options: (1) relational FTS — chosen first (SQLite FTS5 in lab; PostgreSQL `tsvector`+GIN is the production analogue, **unverified here**); (2) dedicated engine — only if corpus/latency demands; (3) managed search — external dependency, blocked.
+Lab (3,000 docs, seed 42): tenant filter in query + authoritative re-check; bm25 ranking with id tiebreak; stable pagination; indexed_version vs source_version → `stale`; update lag flagged then fixed after pipeline; deletes hidden before index catches up; duplicate events idempotent; reconciliation repaired 25 missing docs; malformed query degrades to relational (`degraded:true`). Query latency median 1.29 ms, p95 1.35 ms (n=60). No production endpoint exists (PLANNED). Index excludes sensitive fields by design (to be enforced when built); never a permission source.

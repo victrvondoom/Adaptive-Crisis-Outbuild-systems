@@ -1,0 +1,4 @@
+# Real-time Architecture (Topics 33–34)
+
+Today: browser polling/auto-refresh. Decision: stay with polling for most views; SSE for mission progress/alerts when needed (server→client only); WebSockets NOT required. Protocol (simulated, tested): ordered per-org events with ids and `epoch`; resume with last id; duplicates ignored; stale versions ignored; retention overflow or epoch change → full resync; org filter server-side. Auth/expiry: authenticate at connect, close at token expiry (design; not built).
+Backpressure (REAL stdlib measurement, 600 events, consumer 1 ms, bound 50): unbounded peak depth 600; block: 600/600 delivered, producer slowed to ≈606 ms; drop_oldest and reject_newest: 50 delivered, 550 dropped, depth ≤50; cancellation stop latency ≈1 ms. A streamed agent message never proves a tool call succeeded — success = persisted postcondition (AGENTS.md).

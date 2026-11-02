@@ -1,0 +1,6 @@
+# Security & Key Management (Topic 38)
+
+Inventory (names only): JWT/identity config (`identity.py`, dev adapter in dev), DB credentials (`DATABASE_URL`), model API keys (placeholders; none set → provider BLOCKED), SMS (placeholder only), storage (none), OutSystems (spec only), deployment credentials (none; deploys prohibited). `.env.example` holds placeholders. No secret values were read, printed or committed this session.
+Implemented: `require_secret(name)` fail-closed (error names variable only); `Keyring` — Fernet keys with versions ACTIVE→DECRYPT_ONLY→REVOKED, ciphertext carries version, `rewrap()` for backfill; `status()` exposes states only. Lab verified: old data readable after rotation; rewrapped data survives revocation; un-rewrapped fails closed; missing credential and unknown version fail closed; no key material in lab output (asserted by searching the serialized result).
+Rotation procedure: add key N+1 → deploy (new writes use N+1) → backfill `rewrap` → verify zero N blobs → revoke N → record audit event. Credential rotation: add new secret alongside, switch, revoke old at provider.
+BLOCKED: KMS/managed secret store (no cloud account), provider-outage recovery tests (no providers). Keyring does not yet protect any production column.

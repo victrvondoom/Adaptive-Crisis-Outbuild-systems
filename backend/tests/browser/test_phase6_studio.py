@@ -41,7 +41,8 @@ def test_advanced_studio_journey(server, browser):
     page.click("#advQuiz .sd-quiz >> nth=0 >> .sd-opt >> nth=1")
     assert "Correct" in page.locator("#advQuiz").inner_text()
     page.click("#advQuiz .sd-quiz >> nth=1 >> .sd-opt >> nth=1")
-    assert "Not quite" in page.locator("#advQuiz").inner_text()
+    quiz = page.locator("#advQuiz").inner_text()
+    assert "Your answer" in quiz and "Why not" in quiz       # chosen wrong AND unchosen wrong options are explained
     page.screenshot(path=os.path.join(SHOT, "advanced_topic_desktop.png"))
     # simulated labs are labelled as such
     page.click("button[onclick=\"advSelectChapter(0)\"]")

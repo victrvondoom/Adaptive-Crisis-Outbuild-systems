@@ -1,5 +1,5 @@
 {
-  "commit": "6359ade",
+  "commit": "eb6644c",
   "seed": 42,
   "environment": {
     "engine": "sqlite 3.53.1",
@@ -10,16 +10,16 @@
     "production_database_touched": false
   },
   "repeats": 5,
-  "generated_unix": 1793600901,
+  "generated_unix": 1793601628,
   "experiments": {
     "index": {
       "topic": 22,
       "runs": 2,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 744.3,
-        "max": 761.0,
-        "min": 727.6
+        "median": 762.8,
+        "max": 767.8,
+        "min": 757.9
       },
       "raw_last_run": {
         "topic": 22,
@@ -55,11 +55,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 1.0581,
-              "p95_ms": 1.2024,
+              "median_ms": 1.0242,
+              "p95_ms": 1.2256,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.9985,
-              "max_ms": 1.5113,
+              "min_ms": 0.9724,
+              "max_ms": 1.6559,
               "rows_returned": 50
             }
           },
@@ -70,11 +70,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 2.4207,
-              "p95_ms": 2.5839,
+              "median_ms": 2.3823,
+              "p95_ms": 2.5464,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 2.2863,
-              "max_ms": 2.6306,
+              "min_ms": 2.2609,
+              "max_ms": 2.618,
               "rows_returned": 50
             }
           },
@@ -84,11 +84,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 1.9938,
-              "p95_ms": 2.2204,
+              "median_ms": 1.9758,
+              "p95_ms": 2.1885,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 1.9278,
-              "max_ms": 2.3696,
+              "min_ms": 1.8892,
+              "max_ms": 2.2545,
               "rows_returned": 5
             }
           },
@@ -98,11 +98,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 0.0701,
-              "p95_ms": 0.0916,
+              "median_ms": 0.0682,
+              "p95_ms": 0.085,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.0669,
-              "max_ms": 0.1711,
+              "min_ms": 0.0662,
+              "max_ms": 0.1923,
               "rows_returned": 50
             }
           },
@@ -112,11 +112,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 0.0538,
-              "p95_ms": 0.0663,
+              "median_ms": 0.0526,
+              "p95_ms": 0.0659,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.0512,
-              "max_ms": 0.1161,
+              "min_ms": 0.0507,
+              "max_ms": 0.1086,
               "rows_returned": 50
             }
           }
@@ -128,11 +128,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 0.0602,
-              "p95_ms": 0.0726,
+              "median_ms": 0.059,
+              "p95_ms": 0.0856,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.058,
-              "max_ms": 0.2812,
+              "min_ms": 0.0576,
+              "max_ms": 0.232,
               "rows_returned": 50
             }
           },
@@ -142,11 +142,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 0.0603,
-              "p95_ms": 0.0714,
+              "median_ms": 0.0604,
+              "p95_ms": 0.1075,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.0584,
-              "max_ms": 0.174,
+              "min_ms": 0.058,
+              "max_ms": 0.2251,
               "rows_returned": 50
             }
           },
@@ -156,11 +156,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 0.0369,
-              "p95_ms": 0.0408,
+              "median_ms": 0.0359,
+              "p95_ms": 0.0383,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.0353,
-              "max_ms": 0.064,
+              "min_ms": 0.0344,
+              "max_ms": 0.0699,
               "rows_returned": 5
             }
           },
@@ -170,11 +170,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 0.0615,
-              "p95_ms": 0.0941,
+              "median_ms": 0.0617,
+              "p95_ms": 0.0776,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.0594,
-              "max_ms": 0.1496,
+              "min_ms": 0.0603,
+              "max_ms": 0.0967,
               "rows_returned": 50
             }
           },
@@ -184,11 +184,11 @@
             ],
             "timing": {
               "n": 40,
-              "median_ms": 0.0546,
-              "p95_ms": 0.0723,
+              "median_ms": 0.0538,
+              "p95_ms": 0.0715,
               "p99_ms": "NOT_MEASURED (n<100)",
-              "min_ms": 0.0523,
-              "max_ms": 0.0908,
+              "min_ms": 0.0513,
+              "max_ms": 0.0998,
               "rows_returned": 50
             }
           }
@@ -196,42 +196,42 @@
         "verdicts": {
           "mission_dashboard (org+status, order urgency desc, page 50)": {
             "candidate_index_used": true,
-            "median_speedup_x": 17.58,
+            "median_speedup_x": 17.36,
             "results_identical_rowcount": true,
             "evidence_supports_index": true
           },
           "agent_execution_history (org, newest 50)": {
             "candidate_index_used": true,
-            "median_speedup_x": 40.14,
+            "median_speedup_x": 39.44,
             "results_identical_rowcount": true,
             "evidence_supports_index": true
           },
           "beneficiary_case_history (movements by request_id)": {
             "candidate_index_used": true,
-            "median_speedup_x": 54.03,
+            "median_speedup_x": 55.04,
             "results_identical_rowcount": true,
             "evidence_supports_index": true
           },
           "inventory_ledger_page (org, depot, item, newest 50)": {
             "candidate_index_used": true,
-            "median_speedup_x": 1.14,
+            "median_speedup_x": 1.11,
             "results_identical_rowcount": true,
             "evidence_supports_index": false
           },
           "audit_timeline (org, newest 50)": {
             "candidate_index_used": false,
-            "median_speedup_x": 0.99,
+            "median_speedup_x": 0.98,
             "results_identical_rowcount": true,
             "evidence_supports_index": false
           }
         },
         "write_overhead": {
           "batch_rows": 3000,
-          "insert_ms_without_candidate_indexes": 7.8,
-          "insert_ms_with_candidate_indexes": 28.3,
-          "overhead_pct_all_candidates": 260.3,
-          "insert_ms_with_adopted_set_only": 8.4,
-          "overhead_pct_adopted_set": 7.6,
+          "insert_ms_without_candidate_indexes": 8.3,
+          "insert_ms_with_candidate_indexes": 28.5,
+          "overhead_pct_all_candidates": 244.3,
+          "insert_ms_with_adopted_set_only": 8.3,
+          "overhead_pct_adopted_set": 0.5,
           "note": "sequential batches on a growing table; small absolute numbers, treat as indicative"
         },
         "index_size_bytes": {
@@ -246,7 +246,7 @@
           "synthetic data distribution (seeded uniform)"
         ],
         "lab_name": "index",
-        "wall_ms": 727.6,
+        "wall_ms": 767.8,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": [
@@ -260,9 +260,9 @@
       "runs": 5,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 127.8,
-        "max": 137.1,
-        "min": 115.1
+        "median": 122.9,
+        "max": 128.7,
+        "min": 115.4
       },
       "raw_last_run": {
         "topic": 23,
@@ -294,18 +294,18 @@
         },
         "latency": {
           "n": 24,
-          "median_ms": 44.137,
-          "p95_ms": 65.6887,
+          "median_ms": 41.922,
+          "p95_ms": 59.7968,
           "p99_ms": "NOT_MEASURED (n<100)",
-          "min_ms": 13.1886,
-          "max_ms": 73.0316
+          "min_ms": 13.7063,
+          "max_ms": 73.8601
         },
         "limitations": [
           "SQLite serialises writers (single-writer); PostgreSQL would use row locks / MVCC",
           "isolation levels not varied; correctness comes from atomic UPDATE + CHECK, not from SERIALIZABLE"
         ],
         "lab_name": "contention",
-        "wall_ms": 115.1,
+        "wall_ms": 128.7,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": [
@@ -318,9 +318,9 @@
       "runs": 5,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 354.8,
-        "max": 361.6,
-        "min": 354.5
+        "median": 355.0,
+        "max": 355.5,
+        "min": 354.8
       },
       "raw_last_run": {
         "topic": 24,
@@ -346,14 +346,14 @@
         "peak_checked_out": 3,
         "pool_wait": {
           "n": 12,
-          "median_ms": 203.8889,
-          "p95_ms": 250.6051,
+          "median_ms": 200.2904,
+          "p95_ms": 250.4082,
           "p99_ms": "NOT_MEASURED (n<100)",
-          "min_ms": 0.2025,
-          "max_ms": 250.6351
+          "min_ms": 0.3999,
+          "max_ms": 250.7003
         },
         "leaked_connections_after": 0,
-        "recovery_probe_ms": 0.502,
+        "recovery_probe_ms": 0.574,
         "invariants": {
           "never_exceeded_pool_size": true,
           "excess_clients_failed_fast": true,
@@ -368,7 +368,7 @@
           "formula": "floor((db_max - reserved - scheduled_extra*replicas) / (replicas*workers))"
         },
         "lab_name": "pool",
-        "wall_ms": 361.6,
+        "wall_ms": 354.8,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": []
@@ -378,9 +378,9 @@
       "runs": 5,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 57.4,
-        "max": 60.0,
-        "min": 54.2
+        "median": 62.4,
+        "max": 67.9,
+        "min": 55.5
       },
       "raw_last_run": {
         "topic": 28,
@@ -441,7 +441,7 @@
           "uniqueness constraints are preferred where they suffice (e.g. delivery_receipts PK)"
         ],
         "lab_name": "lease",
-        "wall_ms": 58.8,
+        "wall_ms": 62.4,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": [
@@ -454,9 +454,9 @@
       "runs": 5,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 1471.3,
-        "max": 1474.6,
-        "min": 1468.9
+        "median": 1484.1,
+        "max": 1497.2,
+        "min": 1471.6
       },
       "raw_last_run": {
         "topic": 34,
@@ -487,7 +487,7 @@
             "delivered": 600,
             "dropped": 0,
             "peak_queue_depth": 50,
-            "producer_elapsed_ms": 602.5,
+            "producer_elapsed_ms": 605.8,
             "duplicates": 0,
             "ordered": true
           },
@@ -496,7 +496,7 @@
             "delivered": 50,
             "dropped": 550,
             "peak_queue_depth": 50,
-            "producer_elapsed_ms": 0.9,
+            "producer_elapsed_ms": 1.0,
             "duplicates": 0,
             "ordered": true
           },
@@ -511,7 +511,7 @@
           },
           "cancellation": {
             "producer_stopped": true,
-            "stop_latency_ms": 0.59,
+            "stop_latency_ms": 0.93,
             "produced_before_cancel": 50,
             "queue_bound": 50
           }
@@ -524,7 +524,7 @@
           "cancellation_prompt": true
         },
         "lab_name": "backpressure",
-        "wall_ms": 1471.3,
+        "wall_ms": 1484.1,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": []
@@ -534,9 +534,9 @@
       "runs": 5,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 1084.0,
-        "max": 1157.7,
-        "min": 1058.3
+        "median": 1075.1,
+        "max": 1089.3,
+        "min": 1065.6
       },
       "raw_last_run": {
         "topic": 32,
@@ -552,14 +552,14 @@
         },
         "docs": 3000,
         "seed": 42,
-        "initial_index_ms": 1041.3,
+        "initial_index_ms": 960.5,
         "query_latency": {
           "n": 60,
-          "median_ms": 1.2929,
-          "p95_ms": 1.3483,
+          "median_ms": 1.2901,
+          "p95_ms": 1.3471,
           "p99_ms": "NOT_MEASURED (n<100)",
-          "min_ms": 1.2573,
-          "max_ms": 1.5262
+          "min_ms": 1.2437,
+          "max_ms": 1.5378
         },
         "index_lag_events_after_update": 1,
         "invariants": {
@@ -573,7 +573,7 @@
           "pagination_stable": true
         },
         "lab_name": "search",
-        "wall_ms": 1157.7,
+        "wall_ms": 1075.1,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": []
@@ -583,9 +583,9 @@
       "runs": 2,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 31.2,
-        "max": 31.7,
-        "min": 30.7
+        "median": 29.6,
+        "max": 30.2,
+        "min": 29.0
       },
       "raw_last_run": {
         "topic": 35,
@@ -638,7 +638,7 @@
         },
         "claim": "NOT a zero-downtime claim: single-process SQLite, no traffic generator, no rolling deploy was run.",
         "lab_name": "schema",
-        "wall_ms": 30.7,
+        "wall_ms": 29.0,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": []
@@ -648,9 +648,9 @@
       "runs": 5,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 208.3,
-        "max": 213.5,
-        "min": 198.7
+        "median": 228.7,
+        "max": 239.5,
+        "min": 213.5
       },
       "raw_last_run": {
         "topic": 40,
@@ -664,11 +664,11 @@
           "database": "disposable temp file (WAL)",
           "production_database_touched": false
         },
-        "backup_ms": 5.06,
-        "measured_restore_and_validate_ms": 6.11,
-        "events_at_disaster": 58,
+        "backup_ms": 5.73,
+        "measured_restore_and_validate_ms": 7.17,
+        "events_at_disaster": 59,
         "events_in_backup": 57,
-        "events_lost_after_backup": 1,
+        "events_lost_after_backup": 2,
         "migrations_reapplied": [],
         "audit_chain": {
           "ORG-A": true,
@@ -705,7 +705,7 @@
           "backup file is not encrypted or immutable in this lab; PostgreSQL PITR is platform-managed/PLANNED"
         ],
         "lab_name": "backup",
-        "wall_ms": 208.3,
+        "wall_ms": 223.4,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": [
@@ -719,9 +719,9 @@
       "runs": 5,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 104.1,
-        "max": 162.1,
-        "min": 101.5
+        "median": 106.6,
+        "max": 174.0,
+        "min": 105.7
       },
       "raw_last_run": {
         "topic": 36,
@@ -735,35 +735,35 @@
           "database": "disposable temp file (WAL)",
           "production_database_touched": false
         },
-        "trace_id": "5564db8f5468506cbde90249ea3ccbc9",
+        "trace_id": "ad07a354d306f3a227c6e2df9d9554bb",
         "trace_source": "generated",
         "spans": [
           {
             "name": "db.query",
-            "span_id": "493df30d2c6d55ab",
-            "parent": "788dbb5107a2d2e4",
-            "ms": 0.017,
+            "span_id": "b37b5e52c6c3a6cc",
+            "parent": "1726b4c45bf4798c",
+            "ms": 0.02,
             "status": "OK"
           },
           {
             "name": "optimizer.solve_allocation",
-            "span_id": "8472e1164ca9eb7b",
-            "parent": "71dc9559b03814cc",
-            "ms": 3.052,
+            "span_id": "932973ca57385d57",
+            "parent": "3b9e8422db5c013c",
+            "ms": 3.031,
             "status": "OK"
           },
           {
             "name": "agent.simulated_orchestrator",
-            "span_id": "71dc9559b03814cc",
-            "parent": "788dbb5107a2d2e4",
-            "ms": 5.509,
+            "span_id": "3b9e8422db5c013c",
+            "parent": "1726b4c45bf4798c",
+            "ms": 5.495,
             "status": "OK"
           },
           {
             "name": "gateway.request (simulated HTTP entry)",
-            "span_id": "788dbb5107a2d2e4",
+            "span_id": "1726b4c45bf4798c",
             "parent": null,
-            "ms": 5.778,
+            "ms": 5.803,
             "status": "OK"
           }
         ],
@@ -791,7 +791,7 @@
             "sector": "North"
           }
         },
-        "instrumentation_overhead_us_per_span": 3.25,
+        "instrumentation_overhead_us_per_span": 3.39,
         "exporter": "NONE \u2014 spans stay in an in-process ring buffer",
         "invariants": {
           "all_spans_share_trace_id": true,
@@ -802,7 +802,7 @@
           "pii_redacted": true
         },
         "lab_name": "trace",
-        "wall_ms": 101.5,
+        "wall_ms": 105.7,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": []
@@ -812,9 +812,9 @@
       "runs": 2,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 7.1,
-        "max": 8.4,
-        "min": 5.8
+        "median": 7.2,
+        "max": 8.8,
+        "min": 5.6
       },
       "raw_last_run": {
         "topic": 30,
@@ -892,7 +892,7 @@
           "encryption at rest: delegated to platform/KMS in production; not done by this adapter"
         ],
         "lab_name": "storage",
-        "wall_ms": 5.8,
+        "wall_ms": 5.6,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       },
       "limitations": [
@@ -905,8 +905,8 @@
       "runs": 2,
       "all_invariants_held_every_run": true,
       "wall_ms": {
-        "median": 0.8,
-        "max": 1.5,
+        "median": 0.9,
+        "max": 1.6,
         "min": 0.2
       },
       "raw_last_run": {
@@ -1041,7 +1041,7 @@
         ],
         "all_pass": true,
         "lab_name": "integrity",
-        "wall_ms": 196.6,
+        "wall_ms": 215.5,
         "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
       }
     },
@@ -1175,7 +1175,7 @@
         },
         "decision": "NOT_REQUIRED now; PREPARE: org_id already leads every tenant-scoped index, so a tenant-keyed split remains possible",
         "lab_name": "sharding",
-        "wall_ms": 55.6,
+        "wall_ms": 60.1,
         "run_label": "SIMULATED \u2014 modelled infrastructure, not live"
       }
     },

@@ -44,3 +44,17 @@ Labels: IMPLEMENTED / PARTIALLY_IMPLEMENTED / DOCUMENTED_ONLY / MOCKED / SIMULAT
 ## Open items
 
 See `docs/audit/UNRESOLVED_ISSUES.md` (nothing P0 remains; open items are NOT_IMPLEMENTED integrations requiring external credentials and the CI gap).
+
+
+## Phase VI addendum (2026-11-02)
+| Component | Status | Notes |
+|---|---|---|
+| Migration v5 (3 evidence-gated indexes, scheduled_jobs.fence) | IMPLEMENTED | docs/system-design/advanced/DATABASE_PERFORMANCE.md |
+| Fenced scheduler leases | IMPLEMENTED | stale holders rejected; regression-tested |
+| In-process telemetry (traces, spans, redaction, SLI) | IMPLEMENTED | no exporter; resets on restart |
+| `Cache-Control: no-store` on /api | IMPLEMENTED | |
+| Env-tunable PostgreSQL pool | IMPLEMENTED | untested on a real PG server |
+| Object store (signed URLs) | PARTIALLY_IMPLEMENTED | module+tests; not wired; no S3/AV |
+| Versioned keyring | PARTIALLY_IMPLEMENTED | library; no KMS (BLOCKED) |
+| Replica / sharding / CDN / SSE / search endpoint / multi-region | SIMULATED or NOT_REQUIRED | labelled in Studio |
+| Studio topics 21–40, labs, benchmark lab | IMPLEMENTED | 307 backend + 13 browser tests |
