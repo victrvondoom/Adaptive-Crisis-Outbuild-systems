@@ -37,6 +37,7 @@ from . import identity as ident
 from .authz import (Role, Permission, AuthorizationError, resolve_org_scope,
                     require_permission, role_has_permission)
 from . import persistence
+from . import telemetry
 from .db import get_engine, run_migrations, session_scope
 from .bootstrap import ensure_bootstrap, create_dev_session, get_memberships_for_user
 
@@ -52,6 +53,9 @@ class JsonFormatter(logging.Formatter):
         rid = getattr(record, "request_id", None)
         if rid:
             payload["request_id"] = rid
+        tid = telemetry.current_trace_id()
+        if tid:
+            payload["trace_id"] = tid
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
         return json.dumps(payload, default=str)
@@ -61,6 +65,7 @@ def configure_logging():
     root.handlers.clear()
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
+    handler.addFilter(telemetry.RedactingFilter())
     root.addHandler(handler)
     root.setLevel(logging.INFO)
 
@@ -137,12 +142,27 @@ DEV_ADAPTER = ident.DevAdapter()
 async def request_context(request: Request, call_next):
     rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
     request.state.request_id = rid
+    tctx = telemetry.parse_traceparent(request.headers.get("traceparent"))
+    request.state.trace_id = tctx["trace_id"]
     start = time.perf_counter()
-    response = await call_next(request)
+    with telemetry.trace_context(tctx["trace_id"], tctx["parent_span_id"]):
+        with telemetry.span("http.request", method=request.method, path=telemetry.route_group(request.url.path),
+                            trace_source=tctx["source"]) as sp:
+            response = await call_next(request)
+            if sp is not None:
+                sp["attributes"]["status"] = response.status_code
+                if response.status_code >= 500:
+                    sp["status"], sp["error_class"] = "ERROR", "http_5xx"
+        traceparent = telemetry.current_traceparent()
     duration_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Request-ID"] = rid
+    response.headers["X-Trace-ID"] = tctx["trace_id"]
+    # Private operational data must never be cached by shared caches / CDNs.
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    telemetry.record_request(request.url.path, request.method, response.status_code, duration_ms, tctx["trace_id"])
     logging.getLogger("aidnexus.http").info(
-        json.dumps({"request_id": rid, "method": request.method,
+        json.dumps({"request_id": rid, "trace_id": tctx["trace_id"], "method": request.method,
                     "path": request.url.path, "status": response.status_code,
                     "duration_ms": round(duration_ms, 1)}))
     return response
@@ -163,7 +183,7 @@ RATE_LIMIT_CONFIG = {
     "org": (600, 10.0),          # per-tenant budget: one org cannot starve others
     "expensive": (6, 0.1),       # heavy compute endpoints: 6/min
 }
-EXPENSIVE_PATHS = ("/api/v1/benchmark/run", "/api/v1/features/validate",
+EXPENSIVE_PATHS = ("/api/v1/sd/lab/", "/api/v1/benchmark/run", "/api/v1/features/validate",
                    "/api/v1/sim/tick", "/api/v1/scheduler/tick")
 
 
@@ -616,6 +636,44 @@ def run_benchmark(seed: int = 42, n_requests: int = 200,
     if n_requests < 10 or n_requests > 1000:
         raise HTTPException(status_code=400, detail="n_requests must be in [10, 1000]")
     return run_single_benchmark(seed=seed, n_requests=n_requests)
+
+
+# ----------------------------------------------------------------------
+# Phase VI — System Design Studio (advanced): labs + REAL process telemetry.
+# Labs run ONLY against disposable temp databases; they never touch live state.
+# ----------------------------------------------------------------------
+@app.post("/api/v1/sd/lab/{lab_name}")
+def run_sd_lab(lab_name: str,
+               user: ident.VerifiedIdentity = Depends(get_identity),
+               org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.RUN_OPTIMIZATION)
+    from . import advanced_runner
+    if lab_name not in advanced_runner.REGISTRY:
+        raise HTTPException(status_code=404, detail=f"unknown lab; valid: {sorted(advanced_runner.REGISTRY)}")
+    return advanced_runner.run(lab_name)
+
+
+@app.get("/api/v1/sd/telemetry")
+def sd_telemetry(user: ident.VerifiedIdentity = Depends(get_identity),
+                 org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.AUDIT_READ)
+    return telemetry.snapshot()
+
+
+@app.get("/api/v1/sd/trace/{trace_id}")
+def sd_trace(trace_id: str,
+             user: ident.VerifiedIdentity = Depends(get_identity),
+             org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.AUDIT_READ)
+    return telemetry.get_trace(trace_id)
+
+
+@app.get("/api/v1/sd/slo")
+def sd_slo(user: ident.VerifiedIdentity = Depends(get_identity),
+           org_id: str = Depends(org_context)):
+    guard(user, org_id, Permission.AUDIT_READ)
+    from . import advanced_lab_ext
+    return advanced_lab_ext.slo_report()
 
 
 @app.get("/api/v1/missions/{request_id}")

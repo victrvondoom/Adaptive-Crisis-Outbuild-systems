@@ -77,7 +77,10 @@ def server(tmp_path_factory):
 def browser():
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        _pre = os.environ.get("PW_CHROMIUM_PATH") or (
+            "/opt/pw-browsers/chromium" if os.path.exists("/opt/pw-browsers/chromium") else None)
+        # use the sandbox's pre-installed Chromium when present (Playwright build may differ); no-op elsewhere
+        b = p.chromium.launch(**({"executable_path": _pre, "args": ["--no-sandbox"]} if _pre else {}))
         yield b
         b.close()
 

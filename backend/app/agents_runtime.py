@@ -261,7 +261,7 @@ def validate_schema(value: Any, schema: Dict[str, Any]):
 # ----------------------------------------------------------------------
 # Action execution with postcondition verification
 # ----------------------------------------------------------------------
-def run_action(agent_id: str, action_id: str, org_id: str,
+def _run_action_impl(agent_id: str, action_id: str, org_id: str,
                context: ContextEnvelope, prompt: str, schema: Dict[str, Any],
                handler: Callable, postcondition: Optional[Callable] = None,
                persist: bool = True) -> Dict[str, Any]:
@@ -328,3 +328,10 @@ def _persist_execution(record: Dict[str, Any]):
             persistence.persist_agent_execution(session, record)
     except Exception as e:
         logger.error("agent execution persistence failed: %s", e)
+
+
+def run_action(agent_id: str, action_id: str, org_id: str, *args, **kwargs):
+    """Phase VI: traced wrapper. Span attributes carry ids only — never beneficiary text."""
+    from .telemetry import span
+    with span("agent.run_action", agent_id=agent_id, action_id=action_id):
+        return _run_action_impl(agent_id, action_id, org_id, *args, **kwargs)

@@ -94,6 +94,40 @@ def _aware(dt):
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
 
+def claim_job(session, name: str, now, lease_s: int = 120):
+    """Atomic conditional claim. Returns the NEW fencing token, or None when another
+    holder's unexpired lease exists. The fence strictly increases on every claim, so any
+    holder with an older token can be recognised and rejected at write time."""
+    res = session.execute(
+        update(ScheduledJobRow)
+        .where(ScheduledJobRow.job_name == name,
+               (ScheduledJobRow.lock_expires_at.is_(None)) | (ScheduledJobRow.lock_expires_at <= now))
+        .values(lock_token=uuid.uuid4().hex[:12], fence=ScheduledJobRow.fence + 1,
+                lock_expires_at=now + timedelta(seconds=lease_s)))
+    if res.rowcount == 0:
+        return None
+    return session.execute(select(ScheduledJobRow.fence).where(ScheduledJobRow.job_name == name)).scalar_one()
+
+
+def finish_job_in(session, name: str, fence: int, status: str, error, now) -> bool:
+    """Fenced completion write: applies only while the job's fence still equals the token
+    issued at claim time. If the lease expired and another worker re-claimed the job
+    (fence bumped), this stale holder's write is REJECTED (rowcount 0): it can neither
+    overwrite newer state nor release the new holder's lease. Returns True when applied."""
+    values = dict(last_status=status, last_error=error, lock_token=None, lock_expires_at=None)
+    if status == "OK":
+        values.update(last_run_at=now, runs=ScheduledJobRow.runs + 1)
+    res = session.execute(update(ScheduledJobRow)
+                          .where(ScheduledJobRow.job_name == name, ScheduledJobRow.fence == fence)
+                          .values(**values))
+    return res.rowcount == 1
+
+
+def finish_job(name: str, fence: int, status: str, error, now) -> bool:
+    with session_scope() as session:
+        return finish_job_in(session, name, fence, status, error, now)
+
+
 def tick(force: bool = False, now: datetime = None) -> Dict[str, Any]:
     """Runs all due jobs. Phase 1 atomically claims due jobs (duplicate or
     concurrent ticks get rowcount 0 → no-op); phase 2 executes each claimed
@@ -103,7 +137,7 @@ def tick(force: bool = False, now: datetime = None) -> Dict[str, Any]:
     executed: Dict[str, Any] = {}
 
     # Phase 1: claim due jobs in one short write transaction
-    claimed: list[str] = []
+    claimed: list[tuple] = []   # (job_name, fencing token issued with the claim)
     with session_scope() as session:
         rows = session.execute(select(ScheduledJobRow)).scalars().all()
         for row in rows:
@@ -120,41 +154,24 @@ def tick(force: bool = False, now: datetime = None) -> Dict[str, Any]:
             if lock_exp is not None and lock_exp > now:
                 executed[row.job_name] = {"status": "skipped_locked"}
                 continue
-            token = uuid.uuid4().hex[:12]
-            res = session.execute(
-                update(ScheduledJobRow)
-                .where(ScheduledJobRow.job_name == row.job_name,
-                       (ScheduledJobRow.lock_expires_at.is_(None))
-                       | (ScheduledJobRow.lock_expires_at <= now))
-                .values(lock_token=token,
-                        lock_expires_at=now + timedelta(seconds=120)))
-            if res.rowcount == 0:
+            fence = claim_job(session, row.job_name, now)
+            if fence is None:
                 executed[row.job_name] = {"status": "skipped_contended"}
             else:
-                claimed.append(row.job_name)
+                claimed.append((row.job_name, fence))
         session.flush()
 
     # Phase 2: execute each claimed job, then record the durable outcome
-    for name in claimed:
+    for name, fence in claimed:
         try:
             outcome = _JOB_FUNCS[name]()
-            with session_scope() as session:
-                job = session.get(ScheduledJobRow, name)
-                job.last_run_at = now
-                job.last_status = "OK"
-                job.last_error = None
-                job.runs = (job.runs or 0) + 1
-                job.lock_token = None
-                job.lock_expires_at = None
-            executed[name] = {"status": "OK", "outcome": outcome}
+            ok = finish_job(name, fence, "OK", None, now)
+            executed[name] = ({"status": "OK", "outcome": outcome} if ok
+                              else {"status": "stale_holder_rejected", "fence": fence})
         except Exception as e:  # noqa: BLE001 — durable failure record
-            with session_scope() as session:
-                job = session.get(ScheduledJobRow, name)
-                job.last_status = "FAILED"
-                job.last_error = str(e)[:500]
-                job.lock_token = None
-                job.lock_expires_at = None
-            executed[name] = {"status": "FAILED", "error": str(e)}
+            ok = finish_job(name, fence, "FAILED", str(e)[:500], now)
+            executed[name] = ({"status": "FAILED", "error": str(e)} if ok
+                              else {"status": "stale_holder_rejected", "fence": fence})
     return {"tick_at": now.isoformat(), "jobs": executed}
 
 

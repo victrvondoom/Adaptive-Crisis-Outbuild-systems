@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (String, Integer, Float, Boolean, ForeignKey, UniqueConstraint, CheckConstraint,
-                         Index, Text, DateTime, BigInteger, JSON)
+                         Index, Text, DateTime, BigInteger, JSON, text)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -107,9 +107,11 @@ class InventoryMovement(Base):
     item_type: Mapped[str] = mapped_column(String(64), nullable=False)
     delta: Mapped[float] = mapped_column(Float, nullable=False)
     reason: Mapped[str] = mapped_column(String(64), nullable=False)  # DELIVERY|REPLAN|SEED|CORRECTION
-    request_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=False)
     idempotency_key: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Phase VI (v5): case-history lookup by request (58x median vs full scan).
+    __table_args__ = (Index("ix_movements_request", "request_id"),)
 
 
 class AidRequestRow(Base):
@@ -131,7 +133,9 @@ class AidRequestRow(Base):
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     delivered_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     items: Mapped[list] = mapped_column(JSON, default=list)
-    __table_args__ = (Index("ix_requests_org_status", "org_id", "status"),)
+    __table_args__ = (Index("ix_requests_org_status", "org_id", "status"),
+                      # Phase VI (v5): evidence-gated, see DATABASE_PERFORMANCE.md (18x median).
+                      Index("ix_requests_org_status_urgency", "org_id", "status", text("urgency_score DESC")))
 
 
 class VehicleRow(Base):
@@ -274,6 +278,8 @@ class AgentExecutionRow(Base):
     token_usage: Mapped[dict] = mapped_column(JSON, default=dict)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Phase VI (v5): execution-history page (42x median vs temp B-tree sort).
+    __table_args__ = (Index("ix_agent_exec_org_created", "org_id", text("created_at DESC")),)
 
 
 class AgentToolCallRow(Base):
@@ -367,6 +373,8 @@ class ScheduledJobRow(Base):
     runs: Mapped[int] = mapped_column(Integer, default=0)
     lock_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
     lock_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Phase VI (v5): monotonically increasing fencing token; bumped on every claim.
+    fence: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
 
 
 class ResourceTransferRow(Base):

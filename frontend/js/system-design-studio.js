@@ -8,7 +8,7 @@ const sdState = { chapter: 0, topic: null, theme: "dark", initialized: false };
 function sdEsc(s) { return escapeHtml(String(s === undefined || s === null ? "" : s)); }
 
 window.sdSection = function (name) {
-  ["topics", "map", "trace", "lab"].forEach(n => {
+  ["topics", "map", "trace", "lab", "prod", "bench"].forEach(n => {
     document.getElementById("sdSection-" + n).hidden = (n !== name);
     const b = document.getElementById("sdnav-" + n);
     if (b) b.classList.toggle("active", n === name);

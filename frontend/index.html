@@ -580,7 +580,7 @@
           <div>
             <h2 style="font-family:var(--font-heading); font-size:1.25rem; color:#fff;">🏗️ System Design Studio</h2>
             <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">
-              The 20 foundational system-design topics mapped to THIS codebase — with honest status labels
+              The 20 foundational + 20 advanced system-design topics mapped to THIS codebase — with honest status labels
               (IMPLEMENTED / MANAGED BY PLATFORM / PREPARED / NOT REQUIRED / BLOCKED / SIMULATED) and links to real tests.
               Every diagram reflects the actual repository, not a textbook.
             </p>
@@ -596,11 +596,22 @@
             <button class="sd-chip" onclick="sdSection('map')" id="sdnav-map">🗺️ Architecture Map</button>
             <button class="sd-chip" onclick="sdSection('trace')" id="sdnav-trace">🧭 Request Trace</button>
             <button class="sd-chip" onclick="sdSection('lab')" id="sdnav-lab">🧪 Failure Lab</button>
+            <button class="sd-chip" onclick="sdSection('prod')" id="sdnav-prod">🏭 Production Engineering</button>
+            <button class="sd-chip" onclick="sdSection('bench')" id="sdnav-bench">📊 Benchmark Lab</button>
           </div>
         </div>
 
         <!-- TOPICS -->
         <div id="sdSection-topics">
+          <div class="sd-subnav" role="group" aria-label="Topic track" style="margin-bottom:0.4rem;">
+            <button class="sd-chip active" id="sdTrackFoundations" onclick="sdSetTrack('foundations')">FOUNDATIONS · Topics 01–20</button>
+            <button class="sd-chip" id="sdTrackAdvanced" onclick="sdSetTrack('advanced')">ADVANCED SYSTEM DESIGN · Topics 21–40</button>
+          </div>
+          <div id="sdAdvBanner" class="sd-banner" hidden role="note">
+            <strong>How to read the labels.</strong> <em>REAL MEASURED</em> = executed just now on a disposable database on the server.
+            <em>SIMULATED</em> = deterministic model of infrastructure this repo does not run (replicas, regions, CDN edge).
+            Telemetry is only shown in Production Engineering and is labelled REAL TELEMETRY. Nothing is injected into live data.
+          </div>
           <div class="sd-chapter-row" id="sdChapters" role="tablist" aria-label="Chapters"></div>
           <div id="sdTopicList" class="sd-topic-grid"></div>
           <div id="sdTopicDetail" class="sd-topic-detail" hidden></div>
@@ -621,6 +632,27 @@
           <div id="sdTraceList"></div>
         </div>
 
+        <!-- PRODUCTION ENGINEERING -->
+        <div id="sdSection-prod" hidden>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            Real telemetry from THIS server process (in-memory, since start) and the implementation status of every advanced topic.
+            No exporter, collector or external dashboard exists; values show NOT MEASURED where data does not exist.
+          </p>
+          <button class="btn-primary" onclick="sdLoadProd()">↻ Load live telemetry & SLO</button>
+          <div id="sdProdLive" class="queue-empty" style="margin-top:0.6rem;">Press the button to load REAL telemetry.</div>
+          <div id="sdProdMatrix" style="margin-top:0.8rem; overflow-x:auto;"></div>
+        </div>
+
+        <!-- BENCHMARK LAB -->
+        <div id="sdSection-bench" hidden>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            Runs the real experiments one after another and tabulates what was measured. Numbers come from this server, right now —
+            nothing is pre-filled. SQLite, single machine; not PostgreSQL, not production.
+          </p>
+          <button class="btn-primary" onclick="sdRunBench()">▶ Run benchmark laboratory</button>
+          <div id="sdBenchOut" class="queue-empty" style="margin-top:0.6rem; overflow-x:auto;">Not run yet.</div>
+        </div>
+
         <!-- LAB -->
         <div id="sdSection-lab" hidden>
           <p style="font-size:0.8rem; color:var(--text-secondary);">
@@ -638,6 +670,8 @@
 
   <script src="js/system-design-data.js"></script>
   <script src="js/system-design-studio.js"></script>
+  <script src="js/system-design-advanced-data.js"></script>
+  <script src="js/system-design-advanced.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

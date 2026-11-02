@@ -44,11 +44,44 @@ def build_engine(database_url: Optional[str] = None, echo: bool = False):
         db_dir = os.path.dirname(url.replace("sqlite:///", "", 1))
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
-    engine = create_engine(url, echo=echo, future=True,
-                           pool_pre_ping=True, pool_recycle=1800)
+    kwargs = dict(echo=echo, future=True, pool_pre_ping=True, pool_recycle=1800)
+    if not url.startswith("sqlite"):
+        # Phase VI: bounded, env-tunable pool. Budget MUST satisfy
+        #   replicas * workers * (pool_size + max_overflow) + reserved <= db max_connections
+        # (see advanced_lab.pool_budget). Defaults are conservative, not a tuned claim.
+        kwargs.update(pool_size=int(os.environ.get("DB_POOL_SIZE", "5")),
+                      max_overflow=int(os.environ.get("DB_MAX_OVERFLOW", "5")),
+                      pool_timeout=float(os.environ.get("DB_POOL_TIMEOUT", "10")))
+    engine = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
         _configure_sqlite(engine)
+    _instrument_queries(engine)
     return engine
+
+
+def _instrument_queries(engine):
+    """Phase VI: one `db.query` leaf span per statement (verb only; never SQL parameters)."""
+    import time as _t
+    from .telemetry import record_leaf_span
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def _before(conn, cursor, statement, parameters, context, executemany):
+        context._aid_t0 = _t.perf_counter()
+
+    @event.listens_for(engine, "after_cursor_execute")
+    def _after(conn, cursor, statement, parameters, context, executemany):
+        t0 = getattr(context, "_aid_t0", None)
+        if t0 is not None:
+            record_leaf_span("db.query", (_t.perf_counter() - t0) * 1000,
+                             verb=statement.lstrip().split(" ", 1)[0].upper()[:10])
+
+    @event.listens_for(engine, "handle_error")
+    def _err(exc_context):
+        ctx = exc_context.execution_context
+        t0 = getattr(ctx, "_aid_t0", None) if ctx is not None else None
+        if t0 is not None:
+            record_leaf_span("db.query", (_t.perf_counter() - t0) * 1000, status="ERROR",
+                             error_class=type(exc_context.original_exception).__name__, verb="ERR")
 
 
 def build_session_factory(engine) -> sessionmaker:

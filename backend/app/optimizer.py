@@ -459,3 +459,8 @@ class OptimizerEngine:
             if r.id == req_id:
                 return urgency_score(r)
         return 0.0
+
+
+# Phase VI: span around the optimizer's main entry point (no request data in attributes).
+from .telemetry import traced as _traced  # noqa: E402
+OptimizerEngine.solve_allocation = _traced("optimizer.solve_allocation")(OptimizerEngine.solve_allocation)

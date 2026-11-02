@@ -1,0 +1,1381 @@
+{
+  "commit": "6359ade",
+  "seed": 42,
+  "environment": {
+    "engine": "sqlite 3.53.1",
+    "python": "3.13.18",
+    "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+    "cpu_count": 4,
+    "database": "disposable temp file (WAL)",
+    "production_database_touched": false
+  },
+  "repeats": 5,
+  "generated_unix": 1793600901,
+  "experiments": {
+    "index": {
+      "topic": 22,
+      "runs": 2,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 744.3,
+        "max": 761.0,
+        "min": 727.6
+      },
+      "raw_last_run": {
+        "topic": 22,
+        "mode": "REAL_MEASURED",
+        "seed": 42,
+        "adopted_indexes": {
+          "ix_requests_org_status_urgency": true,
+          "ix_agent_exec_org_created": true,
+          "ix_movements_request": true,
+          "ix_movements_org_depot_item_id": false
+        },
+        "implementation_under_test": "ORM schema + CANDIDATE_INDEXES (SQLite EXPLAIN QUERY PLAN)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "dataset": {
+          "aid_requests": 20000,
+          "agent_executions": 20000,
+          "inventory_movements": 43000,
+          "audit_events": 5000
+        },
+        "repeats": 40,
+        "before": {
+          "mission_dashboard (org+status, order urgency desc, page 50)": {
+            "plan": [
+              "SEARCH aid_requests USING INDEX ix_requests_org_status (org_id=? AND status=?)",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 1.0581,
+              "p95_ms": 1.2024,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.9985,
+              "max_ms": 1.5113,
+              "rows_returned": 50
+            }
+          },
+          "agent_execution_history (org, newest 50)": {
+            "plan": [
+              "SEARCH agent_executions USING INDEX ix_agent_executions_org_id (org_id=?)",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 2.4207,
+              "p95_ms": 2.5839,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 2.2863,
+              "max_ms": 2.6306,
+              "rows_returned": 50
+            }
+          },
+          "beneficiary_case_history (movements by request_id)": {
+            "plan": [
+              "SCAN inventory_movements"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 1.9938,
+              "p95_ms": 2.2204,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 1.9278,
+              "max_ms": 2.3696,
+              "rows_returned": 5
+            }
+          },
+          "inventory_ledger_page (org, depot, item, newest 50)": {
+            "plan": [
+              "SEARCH inventory_movements USING INDEX ix_inventory_movements_org_id (org_id=?)"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 0.0701,
+              "p95_ms": 0.0916,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.0669,
+              "max_ms": 0.1711,
+              "rows_returned": 50
+            }
+          },
+          "audit_timeline (org, newest 50)": {
+            "plan": [
+              "SEARCH audit_events USING INDEX sqlite_autoindex_audit_events_1 (org_id=?)"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 0.0538,
+              "p95_ms": 0.0663,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.0512,
+              "max_ms": 0.1161,
+              "rows_returned": 50
+            }
+          }
+        },
+        "after": {
+          "mission_dashboard (org+status, order urgency desc, page 50)": {
+            "plan": [
+              "SEARCH aid_requests USING INDEX ix_requests_org_status_urgency (org_id=? AND status=?)"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 0.0602,
+              "p95_ms": 0.0726,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.058,
+              "max_ms": 0.2812,
+              "rows_returned": 50
+            }
+          },
+          "agent_execution_history (org, newest 50)": {
+            "plan": [
+              "SEARCH agent_executions USING INDEX ix_agent_exec_org_created (org_id=?)"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 0.0603,
+              "p95_ms": 0.0714,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.0584,
+              "max_ms": 0.174,
+              "rows_returned": 50
+            }
+          },
+          "beneficiary_case_history (movements by request_id)": {
+            "plan": [
+              "SEARCH inventory_movements USING INDEX ix_movements_request (request_id=?)"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 0.0369,
+              "p95_ms": 0.0408,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.0353,
+              "max_ms": 0.064,
+              "rows_returned": 5
+            }
+          },
+          "inventory_ledger_page (org, depot, item, newest 50)": {
+            "plan": [
+              "SEARCH inventory_movements USING INDEX ix_movements_org_depot_item_id (org_id=? AND depot_id=? AND item_type=?)"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 0.0615,
+              "p95_ms": 0.0941,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.0594,
+              "max_ms": 0.1496,
+              "rows_returned": 50
+            }
+          },
+          "audit_timeline (org, newest 50)": {
+            "plan": [
+              "SEARCH audit_events USING INDEX sqlite_autoindex_audit_events_1 (org_id=?)"
+            ],
+            "timing": {
+              "n": 40,
+              "median_ms": 0.0546,
+              "p95_ms": 0.0723,
+              "p99_ms": "NOT_MEASURED (n<100)",
+              "min_ms": 0.0523,
+              "max_ms": 0.0908,
+              "rows_returned": 50
+            }
+          }
+        },
+        "verdicts": {
+          "mission_dashboard (org+status, order urgency desc, page 50)": {
+            "candidate_index_used": true,
+            "median_speedup_x": 17.58,
+            "results_identical_rowcount": true,
+            "evidence_supports_index": true
+          },
+          "agent_execution_history (org, newest 50)": {
+            "candidate_index_used": true,
+            "median_speedup_x": 40.14,
+            "results_identical_rowcount": true,
+            "evidence_supports_index": true
+          },
+          "beneficiary_case_history (movements by request_id)": {
+            "candidate_index_used": true,
+            "median_speedup_x": 54.03,
+            "results_identical_rowcount": true,
+            "evidence_supports_index": true
+          },
+          "inventory_ledger_page (org, depot, item, newest 50)": {
+            "candidate_index_used": true,
+            "median_speedup_x": 1.14,
+            "results_identical_rowcount": true,
+            "evidence_supports_index": false
+          },
+          "audit_timeline (org, newest 50)": {
+            "candidate_index_used": false,
+            "median_speedup_x": 0.99,
+            "results_identical_rowcount": true,
+            "evidence_supports_index": false
+          }
+        },
+        "write_overhead": {
+          "batch_rows": 3000,
+          "insert_ms_without_candidate_indexes": 7.8,
+          "insert_ms_with_candidate_indexes": 28.3,
+          "overhead_pct_all_candidates": 260.3,
+          "insert_ms_with_adopted_set_only": 8.4,
+          "overhead_pct_adopted_set": 7.6,
+          "note": "sequential batches on a growing table; small absolute numbers, treat as indicative"
+        },
+        "index_size_bytes": {
+          "ix_requests_org_status_urgency": 638976,
+          "ix_agent_exec_org_created": 815104,
+          "ix_movements_request": 811008,
+          "ix_movements_org_depot_item_id": 1556480
+        },
+        "limitations": [
+          "SQLite planner/timings, not PostgreSQL",
+          "single process, warm page cache",
+          "synthetic data distribution (seeded uniform)"
+        ],
+        "lab_name": "index",
+        "wall_ms": 727.6,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": [
+        "SQLite planner/timings, not PostgreSQL",
+        "single process, warm page cache",
+        "synthetic data distribution (seeded uniform)"
+      ]
+    },
+    "contention": {
+      "topic": 23,
+      "runs": 5,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 127.8,
+        "max": 137.1,
+        "min": 115.1
+      },
+      "raw_last_run": {
+        "topic": 23,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "persistence.apply_inventory_movement (atomic UPDATE quantity=quantity+delta + CHECK)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "workers": 24,
+        "initial_stock": 100,
+        "qty_each": 10,
+        "outcomes": {
+          "ok": 10,
+          "rejected_negative": 14,
+          "other_error": 0
+        },
+        "final_stock": 0.0,
+        "ledger_sum": 0.0,
+        "expected_successes": 10,
+        "invariants": {
+          "never_negative": true,
+          "ledger_matches_stock": true,
+          "successes_match_capacity": true
+        },
+        "latency": {
+          "n": 24,
+          "median_ms": 44.137,
+          "p95_ms": 65.6887,
+          "p99_ms": "NOT_MEASURED (n<100)",
+          "min_ms": 13.1886,
+          "max_ms": 73.0316
+        },
+        "limitations": [
+          "SQLite serialises writers (single-writer); PostgreSQL would use row locks / MVCC",
+          "isolation levels not varied; correctness comes from atomic UPDATE + CHECK, not from SERIALIZABLE"
+        ],
+        "lab_name": "contention",
+        "wall_ms": 115.1,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": [
+        "SQLite serialises writers (single-writer); PostgreSQL would use row locks / MVCC",
+        "isolation levels not varied; correctness comes from atomic UPDATE + CHECK, not from SERIALIZABLE"
+      ]
+    },
+    "pool": {
+      "topic": 24,
+      "runs": 5,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 354.8,
+        "max": 361.6,
+        "min": 354.5
+      },
+      "raw_last_run": {
+        "topic": 24,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "sqlalchemy QueuePool configured like app.db.build_engine (env-tunable)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "pool_size": 3,
+        "max_overflow": 0,
+        "clients": 12,
+        "hold_s": 0.15,
+        "pool_timeout_s": 0.25,
+        "outcomes": {
+          "served": 6,
+          "timed_out": 6
+        },
+        "peak_checked_out": 3,
+        "pool_wait": {
+          "n": 12,
+          "median_ms": 203.8889,
+          "p95_ms": 250.6051,
+          "p99_ms": "NOT_MEASURED (n<100)",
+          "min_ms": 0.2025,
+          "max_ms": 250.6351
+        },
+        "leaked_connections_after": 0,
+        "recovery_probe_ms": 0.502,
+        "invariants": {
+          "never_exceeded_pool_size": true,
+          "excess_clients_failed_fast": true,
+          "no_leaks": true,
+          "recovered": true
+        },
+        "budget_example": {
+          "processes": 6,
+          "usable_connections": 87,
+          "max_per_process": 14,
+          "feasible": true,
+          "formula": "floor((db_max - reserved - scheduled_extra*replicas) / (replicas*workers))"
+        },
+        "lab_name": "pool",
+        "wall_ms": 361.6,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": []
+    },
+    "lease": {
+      "topic": 28,
+      "runs": 5,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 57.4,
+        "max": 60.0,
+        "min": 54.2
+      },
+      "raw_last_run": {
+        "topic": 28,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "app/scheduler.py claim_job + finish_job_in (fencing column scheduled_jobs.fence, migration v5)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "timeline": [
+          {
+            "step": "8 workers race for the lease",
+            "winners": 1,
+            "fence": [
+              1
+            ]
+          },
+          {
+            "step": "Worker A claims lease (120 s)",
+            "fence": 1
+          },
+          {
+            "step": "t+10s Worker B tries while A's lease is valid",
+            "claimed": false
+          },
+          {
+            "step": "t+130s A paused (GC/partition); lease expired; B claims",
+            "fence": 2
+          },
+          {
+            "step": "t+140s stale A wakes and tries to write its result",
+            "accepted": false,
+            "note": "fence 1 < current fence 2 -> rejected"
+          },
+          {
+            "step": "B finishes with its own token",
+            "accepted": true,
+            "runs": 1
+          },
+          {
+            "step": "COUNTERFACTUAL: naive unfenced release by a stale holder",
+            "foreign_lease_wiped": true
+          }
+        ],
+        "invariants": {
+          "exactly_one_winner": true,
+          "b_blocked_while_lease_valid": true,
+          "fence_strictly_increases": true,
+          "stale_holder_rejected": true,
+          "current_holder_accepted": true
+        },
+        "limitations": [
+          "lease and fence live in the application database; there is no Redis/etcd lock service",
+          "uniqueness constraints are preferred where they suffice (e.g. delivery_receipts PK)"
+        ],
+        "lab_name": "lease",
+        "wall_ms": 58.8,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": [
+        "lease and fence live in the application database; there is no Redis/etcd lock service",
+        "uniqueness constraints are preferred where they suffice (e.g. delivery_receipts PK)"
+      ]
+    },
+    "backpressure": {
+      "topic": 34,
+      "runs": 5,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 1471.3,
+        "max": 1474.6,
+        "min": 1468.9
+      },
+      "raw_last_run": {
+        "topic": 34,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "stdlib queue/threading primitives (the app has no streaming endpoint; polling is used)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "consumer_ms_per_event": 1.0,
+        "bound": 50,
+        "policies": {
+          "unbounded": {
+            "produced": 600,
+            "delivered": 600,
+            "dropped": 0,
+            "peak_queue_depth": 600,
+            "producer_elapsed_ms": 0.4,
+            "duplicates": 0,
+            "ordered": true
+          },
+          "block": {
+            "produced": 600,
+            "delivered": 600,
+            "dropped": 0,
+            "peak_queue_depth": 50,
+            "producer_elapsed_ms": 602.5,
+            "duplicates": 0,
+            "ordered": true
+          },
+          "drop_oldest": {
+            "produced": 600,
+            "delivered": 50,
+            "dropped": 550,
+            "peak_queue_depth": 50,
+            "producer_elapsed_ms": 0.9,
+            "duplicates": 0,
+            "ordered": true
+          },
+          "reject_newest": {
+            "produced": 600,
+            "delivered": 50,
+            "dropped": 550,
+            "peak_queue_depth": 50,
+            "producer_elapsed_ms": 0.5,
+            "duplicates": 0,
+            "ordered": true
+          },
+          "cancellation": {
+            "producer_stopped": true,
+            "stop_latency_ms": 0.59,
+            "produced_before_cancel": 50,
+            "queue_bound": 50
+          }
+        },
+        "invariants": {
+          "unbounded_depth_exceeds_bound": true,
+          "bounded_depth_respected": true,
+          "block_loses_nothing": true,
+          "drop_policies_lose_data": true,
+          "cancellation_prompt": true
+        },
+        "lab_name": "backpressure",
+        "wall_ms": 1471.3,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": []
+    },
+    "search": {
+      "topic": 32,
+      "runs": 5,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 1084.0,
+        "max": 1157.7,
+        "min": 1058.3
+      },
+      "raw_last_run": {
+        "topic": 32,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "SQLite FTS5 in a disposable DB (relational full-text; the production app exposes NO search endpoint yet \u2014 PLANNED)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "docs": 3000,
+        "seed": 42,
+        "initial_index_ms": 1041.3,
+        "query_latency": {
+          "n": 60,
+          "median_ms": 1.2929,
+          "p95_ms": 1.3483,
+          "p99_ms": "NOT_MEASURED (n<100)",
+          "min_ms": 1.2573,
+          "max_ms": 1.5262
+        },
+        "index_lag_events_after_update": 1,
+        "invariants": {
+          "tenant_isolation": true,
+          "stale_result_flagged": true,
+          "update_propagates_after_pipeline": true,
+          "delete_hidden_before_index_catches_up": true,
+          "duplicate_events_idempotent": true,
+          "reconciliation_repairs_drift": true,
+          "failure_degrades_to_relational": true,
+          "pagination_stable": true
+        },
+        "lab_name": "search",
+        "wall_ms": 1157.7,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": []
+    },
+    "schema": {
+      "topic": 35,
+      "runs": 2,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 31.2,
+        "max": 31.7,
+        "min": 30.7
+      },
+      "raw_last_run": {
+        "topic": 35,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "disposable SQLite DB; migration v5 is itself expand-only (idempotent CREATE INDEX IF NOT EXISTS + ADD COLUMN)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "rows": 1000,
+        "batch": 200,
+        "steps": [
+          {
+            "phase": "0 baseline",
+            "old_app_ok": true
+          },
+          {
+            "phase": "1 expand: add nullable priority_code",
+            "old_app_ok": true,
+            "new_app_reads_via_fallback": true
+          },
+          {
+            "phase": "2 backfill interrupted (process killed after 2 batches)",
+            "batches": 2,
+            "rows_unfilled": 600,
+            "old_app_ok": true,
+            "new_app_still_correct": true
+          },
+          {
+            "phase": "3 backfill resumed to completion (idempotent)",
+            "rows_unfilled": 0,
+            "mismatches": 0
+          },
+          {
+            "phase": "4 contract: drop old column",
+            "old_app_ok": false,
+            "meaning": "any old instance still running now FAILS \u2014 contract is safe only after all old instances are gone",
+            "rollback": "not possible without restoring from backup (data in dropped column is gone)"
+          }
+        ],
+        "invariants": {
+          "old_app_works_through_expand": true,
+          "interrupted_backfill_resumes": true,
+          "backfill_lossless": true,
+          "contract_breaks_old_app": true
+        },
+        "claim": "NOT a zero-downtime claim: single-process SQLite, no traffic generator, no rolling deploy was run.",
+        "lab_name": "schema",
+        "wall_ms": 30.7,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": []
+    },
+    "backup": {
+      "topic": 40,
+      "runs": 5,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 208.3,
+        "max": 213.5,
+        "min": 198.7
+      },
+      "raw_last_run": {
+        "topic": 40,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "sqlite3 online backup API + production run_migrations/verify_audit_chain/inventory ledger on a DISPOSABLE database",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "backup_ms": 5.06,
+        "measured_restore_and_validate_ms": 6.11,
+        "events_at_disaster": 58,
+        "events_in_backup": 57,
+        "events_lost_after_backup": 1,
+        "migrations_reapplied": [],
+        "audit_chain": {
+          "ORG-A": true,
+          "ORG-B": true
+        },
+        "inventory_reconciliation": {
+          "ORG-A": {
+            "stock": 300.0,
+            "ledger_sum": 300.0,
+            "match": true
+          },
+          "ORG-B": {
+            "stock": 300.0,
+            "ledger_sum": 300.0,
+            "match": true
+          }
+        },
+        "cross_tenant_rows": 0,
+        "fk_violations": 0,
+        "integrity_check": "ok",
+        "invariants": {
+          "restore_succeeded": true,
+          "audit_chains_valid": true,
+          "inventory_reconciles": true,
+          "no_cross_tenant_rows": true,
+          "no_fk_violations": true,
+          "integrity_ok": true,
+          "migrations_idempotent_on_restore": true,
+          "tamper_detectable_after_restore": true
+        },
+        "limitations": [
+          "measured RTO covers copy+migrate+validate of a tiny DB on one machine, not a production recovery",
+          "RPO here equals writes after the backup instant; scheduled backup cadence is NOT implemented",
+          "backup file is not encrypted or immutable in this lab; PostgreSQL PITR is platform-managed/PLANNED"
+        ],
+        "lab_name": "backup",
+        "wall_ms": 208.3,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": [
+        "measured RTO covers copy+migrate+validate of a tiny DB on one machine, not a production recovery",
+        "RPO here equals writes after the backup instant; scheduled backup cadence is NOT implemented",
+        "backup file is not encrypted or immutable in this lab; PostgreSQL PITR is platform-managed/PLANNED"
+      ]
+    },
+    "trace": {
+      "topic": 36,
+      "runs": 5,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 104.1,
+        "max": 162.1,
+        "min": 101.5
+      },
+      "raw_last_run": {
+        "topic": 36,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "app/telemetry.py spans; HTTP entry is simulated here but db.query + optimizer spans are emitted by the real instrumented code",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "trace_id": "5564db8f5468506cbde90249ea3ccbc9",
+        "trace_source": "generated",
+        "spans": [
+          {
+            "name": "db.query",
+            "span_id": "493df30d2c6d55ab",
+            "parent": "788dbb5107a2d2e4",
+            "ms": 0.017,
+            "status": "OK"
+          },
+          {
+            "name": "optimizer.solve_allocation",
+            "span_id": "8472e1164ca9eb7b",
+            "parent": "71dc9559b03814cc",
+            "ms": 3.052,
+            "status": "OK"
+          },
+          {
+            "name": "agent.simulated_orchestrator",
+            "span_id": "71dc9559b03814cc",
+            "parent": "788dbb5107a2d2e4",
+            "ms": 5.509,
+            "status": "OK"
+          },
+          {
+            "name": "gateway.request (simulated HTTP entry)",
+            "span_id": "788dbb5107a2d2e4",
+            "parent": null,
+            "ms": 5.778,
+            "status": "OK"
+          }
+        ],
+        "trace_coverage": {
+          "spans": 4,
+          "linked_to_parent": 3,
+          "components_seen": [
+            "agent",
+            "db",
+            "gateway",
+            "optimizer"
+          ]
+        },
+        "redaction": {
+          "input": {
+            "requester_name": "Maria Lopez",
+            "phone": "+63 917 555 0100",
+            "note": "call +63 917 555 0100 or maria@example.org",
+            "sector": "North"
+          },
+          "output": {
+            "requester_name": "[REDACTED]",
+            "phone": "[REDACTED]",
+            "note": "[REDACTED]",
+            "sector": "North"
+          }
+        },
+        "instrumentation_overhead_us_per_span": 3.25,
+        "exporter": "NONE \u2014 spans stay in an in-process ring buffer",
+        "invariants": {
+          "all_spans_share_trace_id": true,
+          "db_span_present": true,
+          "optimizer_span_present": true,
+          "parent_chain_correct": true,
+          "exactly_one_root": true,
+          "pii_redacted": true
+        },
+        "lab_name": "trace",
+        "wall_ms": 101.5,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": []
+    },
+    "storage": {
+      "topic": 30,
+      "runs": 2,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 7.1,
+        "max": 8.4,
+        "min": 5.8
+      },
+      "raw_last_run": {
+        "topic": 30,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "app/object_store.py LocalObjectStore (filesystem adapter; no S3, no malware scanner, not wired to routes)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "attempts": [
+          {
+            "attempt": "authorised download with valid signed URL",
+            "allowed": true
+          },
+          {
+            "attempt": "cross-tenant download (ORG-B uses ORG-A key)",
+            "allowed": false,
+            "error": "AccessDenied",
+            "detail": "bad signature"
+          },
+          {
+            "attempt": "tampered signature",
+            "allowed": false,
+            "error": "AccessDenied",
+            "detail": "bad signature"
+          },
+          {
+            "attempt": "expired signed URL",
+            "allowed": false,
+            "error": "AccessDenied",
+            "detail": "signed URL expired"
+          },
+          {
+            "attempt": "executable disguised as PDF",
+            "allowed": false,
+            "error": "StorageError",
+            "detail": "content type not allowed (magic-byte check)"
+          },
+          {
+            "attempt": "oversize upload",
+            "allowed": false,
+            "error": "StorageError",
+            "detail": "object exceeds 5242880 bytes"
+          },
+          {
+            "attempt": "corrupted-in-transit upload (client checksum mismatch)",
+            "allowed": false,
+            "error": "IntegrityError",
+            "detail": "upload corrupted in transit (sha256 mismatch)"
+          },
+          {
+            "attempt": "read after bit-rot (checksum re-verified)",
+            "allowed": false,
+            "error": "IntegrityError",
+            "detail": "stored object failed checksum verification"
+          },
+          {
+            "attempt": "download after deletion",
+            "allowed": false,
+            "error": "AccessDenied",
+            "detail": "not found"
+          }
+        ],
+        "duplicate_upload_reused_object": true,
+        "invariants": {
+          "only_authorised_allowed": true,
+          "duplicate_idempotent": true
+        },
+        "limitations": [
+          "malware scanning: NOT_IMPLEMENTED (needs an AV engine / managed scanner)",
+          "encryption at rest: delegated to platform/KMS in production; not done by this adapter"
+        ],
+        "lab_name": "storage",
+        "wall_ms": 5.8,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": [
+        "malware scanning: NOT_IMPLEMENTED (needs an AV engine / managed scanner)",
+        "encryption at rest: delegated to platform/KMS in production; not done by this adapter"
+      ]
+    },
+    "secrets": {
+      "topic": 38,
+      "runs": 2,
+      "all_invariants_held_every_run": true,
+      "wall_ms": {
+        "median": 0.8,
+        "max": 1.5,
+        "min": 0.2
+      },
+      "raw_last_run": {
+        "topic": 38,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "app/keyring.py (versioned Fernet keyring). Not a KMS; not yet protecting a production column.",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "steps": [
+          {
+            "step": "encrypt 5 records under key v1",
+            "states": {
+              "1": "ACTIVE"
+            }
+          },
+          {
+            "step": "rotate: add key v2 (v1 -> DECRYPT_ONLY)",
+            "states": {
+              "1": "DECRYPT_ONLY",
+              "2": "ACTIVE"
+            },
+            "new_writes_use": "v2",
+            "old_records_still_readable": true
+          },
+          {
+            "step": "backfill: re-wrap 3 of 5 records to v2",
+            "versions": [
+              "v1",
+              "v2"
+            ]
+          },
+          {
+            "step": "revoke v1",
+            "states": {
+              "1": "REVOKED",
+              "2": "ACTIVE"
+            },
+            "results": {
+              "R0": "decrypted",
+              "R4": "FAIL CLOSED (key v1 revoked)"
+            }
+          },
+          {
+            "step": "missing credential / wrong version",
+            "missing_credential": "fail closed: required secret 'AIDNEXUS_LAB_MISSING_CREDENTIAL' is not configured",
+            "wrong_version": "fail closed: unknown key version"
+          }
+        ],
+        "invariants": {
+          "old_readable_after_rotation": true,
+          "rewrapped_survive_revocation": true,
+          "unrewrapped_fail_closed_after_revocation": true,
+          "missing_secret_fails_closed": true,
+          "no_key_material_in_output": true
+        },
+        "lab_name": "secrets",
+        "wall_ms": 0.2,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      },
+      "limitations": []
+    },
+    "integrity": {
+      "topic": 21,
+      "runs": 1,
+      "raw_last_run": {
+        "topic": 21,
+        "mode": "REAL_MEASURED",
+        "implementation_under_test": "app/models_db.py schema via migrations v1-v5",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "checks": [
+          {
+            "check": "invalid foreign key (depot -> missing org)",
+            "database_rejected": true,
+            "expected_rejection": true,
+            "pass": true,
+            "detail": "FOREIGN KEY constraint failed",
+            "note": ""
+          },
+          {
+            "check": "duplicate membership (user, org)",
+            "database_rejected": true,
+            "expected_rejection": true,
+            "pass": true,
+            "detail": "UNIQUE constraint failed: memberships.user_id, memberships.org_id",
+            "note": ""
+          },
+          {
+            "check": "negative inventory (CHECK quantity >= 0)",
+            "database_rejected": true,
+            "expected_rejection": true,
+            "pass": true,
+            "detail": "CHECK constraint failed: ck_inventory_nonnegative",
+            "note": ""
+          },
+          {
+            "check": "duplicate inventory idempotency key",
+            "database_rejected": true,
+            "expected_rejection": true,
+            "pass": true,
+            "detail": "UNIQUE constraint failed: inventory_movements.idempotency_key",
+            "note": ""
+          },
+          {
+            "check": "cross-tenant inventory row (org B row on org A depot)",
+            "database_rejected": false,
+            "expected_rejection": false,
+            "pass": true,
+            "detail": "",
+            "note": "KNOWN GAP: DB accepts it; enforced only by application-layer id qualification. See OPEN_ISSUES."
+          },
+          {
+            "check": "delete depot that has movement history is blocked (RESTRICT)",
+            "database_rejected": true,
+            "expected_rejection": true,
+            "pass": true,
+            "detail": "ledger rows reference depot",
+            "note": ""
+          }
+        ],
+        "all_pass": true,
+        "lab_name": "integrity",
+        "wall_ms": 196.6,
+        "run_label": "REAL_MEASURED \u2014 executed now on a disposable database/process"
+      }
+    },
+    "replica": {
+      "topic": 25,
+      "runs": 1,
+      "raw_last_run": {
+        "topic": 25,
+        "mode": "SIMULATED",
+        "implementation_under_test": "routing model; the app has NO replica (single SQLite/Postgres primary) \u2014 replication is PLANNED/PLATFORM-MANAGED",
+        "environment": {
+          "note": "deterministic tick simulation"
+        },
+        "seed": 42,
+        "lag_ticks": 3,
+        "log": [
+          {
+            "t": 0,
+            "step": "write -30 on primary",
+            "naive_replica_read": {
+              "served_by": "replica",
+              "version": 0,
+              "stock": 100
+            },
+            "routed_inventory_read": {
+              "served_by": "primary",
+              "version": 1,
+              "stock": 70
+            },
+            "ryw_read_with_token": {
+              "served_by": "primary",
+              "version": 1,
+              "stock": 70
+            },
+            "analytics_read": {
+              "served_by": "replica",
+              "version": 0,
+              "stock": 100
+            }
+          },
+          {
+            "t": 3,
+            "step": "replica caught up after 3 ticks",
+            "analytics_read": {
+              "served_by": "replica",
+              "version": 1,
+              "stock": 70
+            }
+          },
+          {
+            "t": 4,
+            "step": "replica unavailable",
+            "inventory_read": {
+              "served_by": "primary",
+              "version": 2,
+              "stock": 50
+            },
+            "analytics_read": {
+              "served_by": "primary",
+              "version": 2,
+              "stock": 50
+            }
+          },
+          {
+            "t": 4,
+            "step": "primary fails; promote replica (ASYNC replication)",
+            "acknowledged_writes_lost": 1,
+            "promoted_stock": 70,
+            "true_stock_before_failure": 50,
+            "with_synchronous_replication_loss": 0
+          }
+        ],
+        "invariants": {
+          "naive_read_is_stale": true,
+          "critical_reads_never_use_replica": true,
+          "read_your_writes_via_token": true,
+          "async_failover_can_lose_acked_writes": true
+        },
+        "lab_name": "replica",
+        "wall_ms": 0.0,
+        "run_label": "SIMULATED \u2014 modelled infrastructure, not live"
+      }
+    },
+    "sharding": {
+      "topic": 26,
+      "runs": 1,
+      "raw_last_run": {
+        "topic": 26,
+        "mode": "SIMULATED",
+        "implementation_under_test": "routing arithmetic only; AIDNEXUS is NOT sharded and the index experiment shows it does not need to be",
+        "environment": {
+          "note": "deterministic"
+        },
+        "seed": 42,
+        "shards": 4,
+        "events": 20000,
+        "strategies": {
+          "hash(org_id)": {
+            "per_shard": [
+              808,
+              15504,
+              2673,
+              1015
+            ],
+            "max_over_mean": 3.1,
+            "note": "tenant key keeps one org's data together but the skewed tenant makes a HOT shard"
+          },
+          "hash(event_id)": {
+            "per_shard": [
+              4929,
+              5052,
+              5050,
+              4969
+            ],
+            "max_over_mean": 1.01,
+            "note": "even load, but per-org queries become cross-shard fan-out (all shards)"
+          },
+          "range(event_id)": {
+            "per_shard": [
+              5000,
+              5000,
+              5000,
+              5000
+            ],
+            "max_over_mean": 1.0
+          }
+        },
+        "invariants": {
+          "org_hash_creates_hot_shard": true,
+          "event_hash_is_balanced": true
+        },
+        "decision": "NOT_REQUIRED now; PREPARE: org_id already leads every tenant-scoped index, so a tenant-keyed split remains possible",
+        "lab_name": "sharding",
+        "wall_ms": 55.6,
+        "run_label": "SIMULATED \u2014 modelled infrastructure, not live"
+      }
+    },
+    "cap": {
+      "topic": 27,
+      "runs": 1,
+      "raw_last_run": {
+        "topic": 27,
+        "mode": "SIMULATED",
+        "implementation_under_test": "two-node model of CP vs AP behaviour during a partition; AIDNEXUS runs one primary database",
+        "environment": {
+          "note": "deterministic"
+        },
+        "cp_strategy": {
+          "during_partition": [
+            {
+              "node": "A",
+              "reserve": 8,
+              "accepted": false,
+              "reason": "no quorum; request rejected, retry later"
+            },
+            {
+              "node": "B",
+              "reserve": 8,
+              "accepted": false,
+              "reason": "no quorum; request rejected, retry later"
+            }
+          ],
+          "total_reserved_of_10": 0,
+          "oversold": false,
+          "on_heal": "no divergence"
+        },
+        "ap_strategy": {
+          "during_partition": [
+            {
+              "node": "A",
+              "reserve": 8,
+              "accepted": true
+            },
+            {
+              "node": "B",
+              "reserve": 8,
+              "accepted": true
+            }
+          ],
+          "total_reserved_of_10": 16,
+          "oversold": true,
+          "on_heal": "conflict detected -> compensation required (cancel one reservation)"
+        },
+        "analytics_ap": {
+          "ap_ok": true,
+          "note": "eventually-consistent counters merge after heal; staleness acceptable"
+        },
+        "decision_matrix": [
+          {
+            "operation": "inventory reservation",
+            "requirement": "strong (single-writer transaction + CHECK)",
+            "during_partition": "reject writes"
+          },
+          {
+            "operation": "delivery confirmation",
+            "requirement": "idempotent transactional update",
+            "during_partition": "reject or queue client-side; never double-apply"
+          },
+          {
+            "operation": "mission approval",
+            "requirement": "bind to authoritative plan version",
+            "during_partition": "reject"
+          },
+          {
+            "operation": "analytics / history",
+            "requirement": "eventual OK",
+            "during_partition": "serve stale, labelled"
+          },
+          {
+            "operation": "search",
+            "requirement": "eventual OK, never authoritative",
+            "during_partition": "serve stale or degrade to DB"
+          }
+        ],
+        "invariants": {
+          "cp_never_oversells": true,
+          "cp_is_unavailable_during_partition": true,
+          "ap_can_oversell": true
+        },
+        "lab_name": "cap",
+        "wall_ms": 0.0,
+        "run_label": "SIMULATED \u2014 modelled infrastructure, not live"
+      }
+    },
+    "region": {
+      "topic": 39,
+      "runs": 1,
+      "raw_last_run": {
+        "topic": 39,
+        "mode": "SIMULATED",
+        "implementation_under_test": "policy model; AIDNEXUS is deployed in at most ONE region (single-instance demo). Multi-region: NOT_REQUIRED.",
+        "environment": {
+          "note": "deterministic"
+        },
+        "tenants": {
+          "ORG-PACIFIC": {
+            "home": "ap-southeast",
+            "residency": "restricted"
+          },
+          "ORG-HIGHLAND": {
+            "home": "eu-west",
+            "residency": "restricted"
+          },
+          "ORG-OPEN": {
+            "home": "eu-west",
+            "residency": "unrestricted"
+          }
+        },
+        "steps": [
+          {
+            "step": "replication policy check",
+            "ORG-PACIFIC->eu-west": false,
+            "ORG-OPEN->ap-southeast": true
+          },
+          {
+            "step": "region eu-west fails",
+            "result": {
+              "ORG-PACIFIC": "available (home region healthy)",
+              "ORG-HIGHLAND": "UNAVAILABLE until home region recovers (residency forbids failover copy)",
+              "ORG-OPEN": "failover to ap-southeast (replica; async lag => possible loss)"
+            }
+          }
+        ],
+        "invariants": {
+          "restricted_data_not_replicated_abroad": true,
+          "unrestricted_may_replicate": true,
+          "restricted_tenant_pays_availability": true
+        },
+        "lab_name": "region",
+        "wall_ms": 0.0,
+        "run_label": "SIMULATED \u2014 modelled infrastructure, not live"
+      }
+    },
+    "realtime": {
+      "topic": 33,
+      "runs": 1,
+      "raw_last_run": {
+        "topic": 33,
+        "mode": "SIMULATED",
+        "implementation_under_test": "EventLog/Client protocol model (NOT deployed: the app uses polling via auto-refresh; SSE is PLANNED)",
+        "environment": {
+          "engine": "sqlite 3.53.1",
+          "python": "3.13.18",
+          "os": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+          "cpu_count": 4,
+          "database": "disposable temp file (WAL)",
+          "production_database_touched": false
+        },
+        "steps": [
+          {
+            "step": "connected; initial events",
+            "a_applied": [
+              1,
+              2,
+              3
+            ],
+            "b_applied": [
+              4
+            ]
+          },
+          {
+            "step": "A offline while 2 events published",
+            "a_last_id": 3
+          },
+          {
+            "step": "A reconnects with Last-Event-ID",
+            "replayed": [
+              6
+            ],
+            "a_state_version": 5,
+            "duplicates_ignored": true
+          },
+          {
+            "step": "stale update (version 2 < 5) delivered late",
+            "state_version_unchanged": true
+          },
+          {
+            "step": "server restarts (log lost)",
+            "resync_required": true,
+            "reason": "server restarted (new epoch)",
+            "client_resyncs": 1,
+            "state_version_after_resync": 6
+          }
+        ],
+        "invariants": {
+          "tenant_isolation": true,
+          "no_missed_events": true,
+          "stale_ignored": true,
+          "restart_forces_resync": true
+        },
+        "lab_name": "realtime",
+        "wall_ms": 0.1,
+        "run_label": "SIMULATED \u2014 modelled infrastructure, not live"
+      }
+    }
+  }
+}
